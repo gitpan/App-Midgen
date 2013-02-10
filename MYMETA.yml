@@ -36,4 +36,4 @@ requires:
   constant: 1.25
   lib: 0.63
   perl: 5.010
-version: 0.06
+version: 0.07

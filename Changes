@@ -1,20 +1,13 @@
 Revision history for App-Midgen
 
 {{$NEXT}}
+
+0.07 2013-02-10
  - Update Changes [d62fc0b]
- - bump to version 0.06 [3e6faae]
- - bump to version 0.06 [204e78b]
- - bump to version 0.06 [f7b7fac]
- - typo fixed [b5406bf]
- - I almost forgot web links [ad61987]
- - missed one [765df21]
  - remove strictures [dd86b71]
- - remove strictures [8f8662d]
- - remove strictures [46472c5]
- - remove strictures [90bff14]
- - remove findbin [3c4e5b0]
- - another tweak [6d65c39]
- - another tweak [27fc128]
+ - remove an unwanted dependancy [5eaca1d]
+ - put a copy of pod in readme.md [4100b1a]
+ - bump to version 0.07 [1b1bcc4]
 
 0.06 2013-02-10
  - first pass of midgen against it's self,  [6a37b2e]
