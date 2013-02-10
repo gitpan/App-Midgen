@@ -1,0 +1,47 @@
+---
+abstract: 'generate the requires and test requires for Makefile.PL using Module::Install::DSL'
+author:
+  - 'Kevin Dawson <bowtie@cpan.org>'
+build_requires:
+  ExtUtils::MakeMaker: 6.59
+  Test::More: 0.98
+configure_requires:
+  ExtUtils::MakeMaker: 6.59
+distribution_type: module
+dynamic_config: 0
+generated_by: 'Module::Install version 1.06'
+license: perl
+meta-spec:
+  url: http://module-build.sourceforge.net/META-spec-v1.4.html
+  version: 1.4
+module_name: App::Midgen
+name: App-Midgen
+no_index:
+  directory:
+    - inc
+    - t
+    - xt
+requires:
+  CPAN: 1.9800
+  Carp: 1.26
+  Cwd: 3.40
+  Data::Printer: 0.35
+  File::Slurp: 9999.19
+  File::Spec: 3.40
+  Getopt::Long: 2.38
+  Module::CoreList: 2.80
+  Moo: 1.000008
+  MooX::Types::MooseLike::Base: 0.19
+  PPI: 1.215
+  Pod::Usage: 1.61
+  Try::Tiny: 0.12
+  autodie: 2.13
+  constant: 1.25
+  lib: 0.63
+  perl: 5.10.0
+resources:
+  bugtracker: https://github.com/kevindawson/App-Midgen/issues
+  homepage: https://github.com/kevindawson/App-Midgen
+  license: http://dev.perl.org/licenses/
+  repository: git://github.com/kevindawson/App-Midgen.git
+version: 0.06

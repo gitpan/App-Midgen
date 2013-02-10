@@ -1,0 +1,39 @@
+Revision history for App-Midgen
+
+{{$NEXT}}
+ - Update Changes [d62fc0b]
+ - bump to version 0.06 [3e6faae]
+ - bump to version 0.06 [204e78b]
+ - bump to version 0.06 [f7b7fac]
+ - typo fixed [b5406bf]
+ - I almost forgot web links [ad61987]
+ - missed one [765df21]
+ - remove strictures [dd86b71]
+ - remove strictures [8f8662d]
+ - remove strictures [46472c5]
+ - remove strictures [90bff14]
+ - remove findbin [3c4e5b0]
+ - another tweak [6d65c39]
+ - another tweak [27fc128]
+
+0.06 2013-02-10
+ - first pass of midgen against it's self,  [6a37b2e]
+ - first attempt at a Role with the GetOpps Long cmd varibles [61c8e11]
+ - Add noise control for PPI::XS test, we can't use it			   
+      as it has deperated calls [8f6d32e]
+ - encapsulated attributes [5efce18]
+ - cooking on gas, as it was, so we are working [722185f]
+ - add some encapsulated attribures to store our module and version info in
+ - run against self - update with minilist contents [3b18315]
+ - use block form -> map [feef369]
+ - add some error checking to out attributes [35180ab]
+ - add defaults to attributes [909ee9e]
+ - the out come of re-reading PPI pod, a tweak here and there [2331f55]
+ - Hack for use_ok in test files, Ouch! but working [57a93e9]
+ - opps duplicats. yuck, ok now [5c0d4df]
+ - the joy of refactoring, fixing things that used to work :) [50e9caa]
+
+0.05 2013-02-04
+ - Initial release. (BOWTIE)
+ - which is midgen.pl ver 0.05
+
