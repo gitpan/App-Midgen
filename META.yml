@@ -1,5 +1,5 @@
 ---
-abstract: 'generate the requires and test requires for Makefile.PL using Module::Install::DSL'
+abstract: 'generate the requires and test requires sections for Makefile.PL'
 author:
   - 'Kevin Dawson <bowtie@cpan.org>'
 build_requires:
@@ -35,7 +35,6 @@ requires:
   PPI: 1.215
   Pod::Usage: 1.61
   Try::Tiny: 0.12
-  autodie: 2.13
   constant: 1.25
   lib: 0.63
   perl: 5.10.0
@@ -44,4 +43,4 @@ resources:
   homepage: https://github.com/kevindawson/App-Midgen
   license: http://dev.perl.org/licenses/
   repository: git://github.com/kevindawson/App-Midgen.git
-version: 0.07
+version: 0.08

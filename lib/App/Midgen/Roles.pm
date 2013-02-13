@@ -4,7 +4,7 @@ use v5.10;
 use strict;
 use warnings;
 
-our $VERSION = '0.07';
+our $VERSION = '0.08';
 use English qw( -no_match_vars ); # Avoids reg-ex performance penalty
 local $OUTPUT_AUTOFLUSH = 1;
 
@@ -15,77 +15,101 @@ use Carp;
 #######
 # cmd line options
 #######
+
 has 'base_parent' => (
 	is  => 'ro',
 	isa => sub {
 		croak "$_[0] this is not a Bool"
 			unless is_Bool( $_[0] );
 	},
-	default => sub { 0 },
+	default => sub {
+		0;
+	},
 	required => 1,
 );
+
 has 'core' => (
 	is  => 'ro',
 	isa => sub {
 		croak "$_[0] this is not a Bool"
 			unless is_Bool( $_[0] );
 	},
-	default => sub { 0 },
+	default => sub {
+		0;
+	},
 	required => 1,
 );
+
 has 'debug' => (
 	is  => 'ro',
 	isa => sub {
 		croak "$_[0] this is not a Bool"
 			unless is_Bool( $_[0] );
 	},
-	default => sub { 0 },
+	default => sub {
+		0;
+	},
 	required => 1,
 );
+
 has 'mojo' => (
 	is  => 'ro',
 	isa => sub {
 		croak "$_[0] this is not a Bool"
 			unless is_Bool( $_[0] );
 	},
-	default => sub { 0 },
+	default => sub {
+		0;
+	},
 	required => 1,
 );
+
 has 'noisy_children' => (
 	is  => 'ro',
 	isa => sub {
 		croak "$_[0] this is not a Bool"
 			unless is_Bool( $_[0] );
 	},
-	default => sub { 0 },
+	default => sub {
+		0;
+	},
 	required => 1,
 );
+
 has 'output_format' => (
 	is  => 'ro',
 	isa => sub {
-		my $format = { dsl => 1, mi => 1, build => 1, };
+		my $format = { dsl => 1, mi => 1, build => 1, dzil => 1};
 		croak 'not a supported output format' unless defined $format->{ $_[0] };
 		return;
 	},
-	default => sub { 'dsl' },
+	default => sub {
+		'dsl';
+	},
 	required => 1,
 );
+
 has 'padre' => (
-is  => 'ro',
+	is  => 'ro',
 	isa => sub {
 		croak "$_[0] this is not a Bool"
 			unless is_Bool( $_[0] );
 	},
-	default => sub { 0 },
+	default => sub {
+		0;
+	},
 	required => 1,
 );
+
 has 'verbose' => (
 	is  => 'ro',
 	isa => sub {
 		croak "$_[0] this is not a Bool"
 			unless is_Bool( $_[0] );
 	},
-	default => sub { 0 },
+	default => sub {
+		0;
+	},
 	required => 1,
 );
 
@@ -93,29 +117,26 @@ has 'verbose' => (
 # some encapsulated attributes
 #######
 
-# Our best guess as to this packages name
 has 'package_name' => (
 	is  => 'rw',
 	isa => Str,
 );
 
-# Some package names we found along the way
 has 'package_names' => (
 	is  => 'rw',
 	isa => ArrayRef,
 );
 
-# Some where to store required modules and version info in
 has 'requires' => (
 	is  => 'rw',
 	isa => HashRef,
 );
 
-# Some where to store test_required modules and version info in
 has 'test_requires' => (
 	is  => 'rw',
 	isa => HashRef,
 );
+
 
 1;
 
@@ -127,13 +148,13 @@ __END__
 
 =head1 NAME
 
-App::Midgen - generate the requires and test requires for Makefile.PL using Module::Install::DSL
+App::Midgen::Roles - Package Options and Attributes used by L<App::Midgen>
 
 =head1 VERSION
 
-This document describes App::Midgen version 0.07
+This document describes App::Midgen::Roles version 0.08
 
-=head1 ACCSESSORS
+=head1 OPTIONS
 
 =over 4
 
@@ -155,7 +176,32 @@ This document describes App::Midgen version 0.07
 
 =back
 
-=head1 AUTHORS
+for more info see L<midgen>
+
+=head1 ACCESSORS
+
+=over 4
+
+=item * package_name
+
+Our best guess as to this packages name
+
+=item * package_names
+
+Some package names we found along the way
+
+=item * requires
+
+Some where to store required modules and version info in
+
+=item * test_requires
+
+Some where to store test_required modules and version info in
+
+=back
+
+
+=head1 AUTHOR
 
 Kevin Dawson E<lt>bowtie@cpan.orgE<gt>
 
@@ -165,7 +211,7 @@ none at present
 
 =head1 COPYRIGHT
 
-Copyright E<copy> 2013 AUTHORS and CONTRIBUTORS as listed above.
+Copyright E<copy> 2013 AUTHOR and CONTRIBUTORS as listed above.
 
 =head1 LICENSE
 
@@ -174,7 +220,7 @@ modify it under the same terms as Perl 5 itself.
 
 =head1 SEE ALSO
 
-L<Perl::PrereqScanner>,
+L<App::Midgen>,
 
 =head1 DISCLAIMER OF WARRANTY
 

@@ -8,12 +8,10 @@ BEGIN {
 	$PPI::XS_DISABLE = 1; # noise control - Prevent warning
 }
 
-our $VERSION = '0.07';
-use English qw( -no_match_vars ); # Avoids regex performance penalty
+our $VERSION = '0.08';
+use English qw( -no_match_vars ); # Avoids reg-ex performance penalty
 local $OUTPUT_AUTOFLUSH = 1;
 
-use Try::Tiny;
-use autodie;
 use Data::Printer {
 	caller_info => 1,
 	colored     => 1,
@@ -69,14 +67,10 @@ my $midgen = App::Midgen->new(
 	debug          => $debug,
 );
 
-#ToDo Added to test default attributes
-# my $midgen = App::Midgen->new();
-
 p $midgen if $debug;
 
 $midgen->run();
 
-#ToDo Add the control flow here
 
 say 'END';
 
@@ -90,20 +84,26 @@ __END__
 
 =head1 NAME
 
-midgen.pl - generate the requires and test requires for Makefile.PL using Module::Install::DSL
+midgen - generate the requires and test requires sections for Makefile.PL
+
+=head1 VERSION
+
+This document describes midgen version 0.08
 
 =head1 SYNOPSIS
 
-midgen [options]
+Change to root of package and run
 
- Options:
-   -help	brief help message
-   -output	change format
-   -core	show perl core modules
-   -verbose	take a little peek as to what is going on
-   -base	Don't check for base includes
-   -mojo	Don't be Mojo friendly	
-   -debug	lots of stuff
+ midgen
+
+Now with a Getopt --help or -?
+
+ midgen -?
+
+or
+
+ midgen [options]
+
 
 =head1 OPTIONS
 
@@ -113,16 +113,26 @@ midgen [options]
 
 Print a brief help message and exits.
 
+ Options:
+   --help    brief help message
+   --output  change format
+   --core    show perl core modules
+   --verbose take a little peek as to what is going on
+   --base    don't check for base includes
+   --mojo    don't be Mojo friendly	
+   --debug   lot's of stuff
+
 =item B<--output or -o>
 
-By default we do 'dsl' -> Module::Include::DSL
+By default we output to screen in 'dsl' format, 
+so you can check, copy and paste or select an alternative as shown below
 
- midgen.pl -o dsl	# Module::Include::DSL
- midgen.pl -o mi	# Module::Include
- midgen.pl -o build	# Build.PL
+ midgen -o dsl		# Module::Include::DSL
+ midgen -o mi		# Module::Include
+ midgen -o build	# Build
+ midgen -o dzil		# Dist::Zilla
 
-
-=item B<-core or -c>
+=item B<--core or -c>
 
  * Shows modules that are in Perl core
  * some modules have a version number eg; constant, Carp
@@ -150,23 +160,21 @@ Turn Off - the /Mojo/ to Mojolicious catch
 
 =item B<--debug or -d>
 
-equivalent of -cv and some :)
+equivalent of -cv and some :))
+
+uses L<Data::Printer>
 
 =back
  
 =head1 DESCRIPTION
 
-This started out as a way of generating the core for a Module::Install::DSL Makefile.PL, why DSL because it's nice and clean, so now I can generate the contents when I want, rather than as I add new use and require statments, and because adam kicked me :)
+This started out as a way of generating the core for a Module::Install::DSL Makefile.PL, 
+why DSL because it's nice and clean, so now I can generate the contents when I want, 
+rather than as I add new use and require statements, and because Adam kicked me :)
 
-Change to root of package and run
 
- midgen.pl
 
-Now with a GetOps --help or -?
-
- midgen.pl -?
-
-=head1 AUTHORS
+=head1 AUTHOR
 
 Kevin Dawson E<lt>bowtie@cpan.orgE<gt>
 
@@ -176,7 +184,7 @@ none at present
 
 =head1 COPYRIGHT
 
-Copyright E<copy> 2012-2013 AUTHORS and CONTRIBUTORS as listed above.
+Copyright E<copy> 2012-2013 AUTHOR and CONTRIBUTORS as listed above.
 
 =head1 LICENSE
 
