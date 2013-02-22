@@ -29,9 +29,9 @@ requires:
   File::Slurp: 9999.19
   File::Spec: 3.40
   Getopt::Long: 2.38
-  Module::CoreList: 2.80
+  Module::CoreList: 2.82
   Moo: 1.000008
-  MooX::Types::MooseLike::Base: 0.19
+  MooX::Types::MooseLike::Base: 0.21
   PPI: 1.215
   Pod::Usage: 1.61
   Try::Tiny: 0.12
@@ -43,4 +43,4 @@ resources:
   homepage: https://github.com/kevindawson/App-Midgen
   license: http://dev.perl.org/licenses/
   repository: git://github.com/kevindawson/App-Midgen.git
-version: 0.08
+version: 0.10

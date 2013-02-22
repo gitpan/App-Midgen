@@ -1,13 +1,11 @@
 package App::Midgen;
 
 use v5.10;
-use strict;
-use warnings;
 use Moo;
 with qw( App::Midgen::Roles );
 use App::Midgen::Output;
 
-our $VERSION = '0.08';
+our $VERSION = '0.10';
 use English qw( -no_match_vars ); # Avoids reg-ex performance penalty
 local $OUTPUT_AUTOFLUSH = 1;
 
@@ -27,6 +25,7 @@ use Try::Tiny;
 use constant {
 	BLANK => qq{ },
 	NONE  => q{},
+	THREE => 3,
 };
 
 
@@ -44,13 +43,20 @@ sub run {
 
 	$self->find_required_modules();
 	$self->remove_noisy_children( $self->{requires} ) if ( !$self->{verbose} );
+	$self->remove_twins( $self->{requires} )          if ( !$self->{verbose} );
+
+	#run a second time if we found any twins, this will sort out twins and triplets etc
+	$self->remove_noisy_children( $self->{requires} ) if ( !$self->{verbose} && $self->{found_twins} );
+
 	$self->output_main_body( 'requires', $self->{requires} );
 
 	$self->find_required_test_modules();
 	$self->output_main_body( 'test_requires', $self->{test_requires} );
+	$self->output_main_body( 'recommends',    $self->{recommends} );
+
 	$self->output_footer();
 
-	print "\n";
+	# print "\n";
 
 	return;
 }
@@ -97,6 +103,10 @@ sub first_package_name {
 sub find_package_names {
 	my $self     = shift;
 	my $filename = $_;
+	state $files_checked;
+	if ( defined $files_checked ) {
+		return if $files_checked >= THREE;
+	}
 
 	# Only check in pm files
 	return if $filename !~ /[.]pm$/sxm;
@@ -106,6 +116,7 @@ sub find_package_names {
 
 	# Extract package names
 	push @{ $self->{package_names} }, $document->find_first('PPI::Statement::Package')->namespace;
+	$files_checked++;
 
 	return;
 }
@@ -141,7 +152,7 @@ sub find_required_modules {
 sub find_required_test_modules {
 	my $self = shift;
 
-	my @posiable_directories_to_search = File::Spec->catfile( $self->{working_dir}, 't' );
+	my @posiable_directories_to_search = map { File::Spec->catfile( $self->{working_dir}, $_ ) } qw( t );
 	my @directories_to_search = ();
 	for my $directory (@posiable_directories_to_search) {
 		if ( defined -d $directory ) {
@@ -250,6 +261,7 @@ sub find_makefile_test_requires {
 			next if $include->type eq 'no';
 
 			my @modules = $include->module;
+			p @modules if $self->{debug};
 
 			if ( !$self->{base_parent} ) {
 				my @base_parent_modules = $self->base_parent( $include->module, $include->content, $include->pragma );
@@ -258,9 +270,23 @@ sub find_makefile_test_requires {
 				}
 			}
 
-			$self->process_found_modules( \@modules );
+			$self->process_found_modules( 'test_requires', \@modules );
 		}
 	}
+
+	#ToDo these are realy rscommends
+	$self->recommends_in_single_quote($document);
+	$self->recommends_in_double_quote($document);
+
+	return;
+}
+
+#######
+# composed method - recommends_in_single_quote
+#######
+sub recommends_in_single_quote {
+	my $self     = shift;
+	my $document = shift;
 
 	# Hack for use_ok in test files, Ouch!
 	# Now lets double check the ptq-Single hidden in a test file
@@ -276,7 +302,7 @@ sub find_makefile_test_requires {
 				p $module if $self->{debug};
 
 				# if we have found it already ignore it
-				if ( !$self->{requires}{$module} ) {
+				if ( !$self->{requires}{$module} && !$self->{test_requires}{$module} ) {
 					push @modules, $module;
 				}
 			}
@@ -288,10 +314,11 @@ sub find_makefile_test_requires {
 				$module =~ s/^[']//;
 				$module =~ s/[']$//;
 				$module =~ s/^use\s//;
+				$module =~ s/(\s[\s|\w|\n|.|;]+)$//;
 				p $module if $self->{debug};
 
 				# if we have found it already ignore it
-				if ( !$self->{requires}{$module} ) {
+				if ( !$self->{requires}{$module} && !$self->{test_requires}{$module} ) {
 					push @modules, $module;
 				}
 			}
@@ -299,10 +326,18 @@ sub find_makefile_test_requires {
 			# if we found a modules, process it
 			if ( scalar @modules > 0 ) {
 				p @modules if $self->{debug};
-				$self->process_found_modules( \@modules );
+				$self->process_found_modules( 'recommends', \@modules );
 			}
 		}
 	}
+	return;
+}
+#######
+# composed method - recommends_in_double_quote
+#######
+sub recommends_in_double_quote {
+	my $self     = shift;
+	my $document = shift;
 
 	# Now lets double check the ptq-Doubles hidden in a test file - why O why - rtfm pbp
 	my $ppi_tqd = $document->find('PPI::Token::Quote::Double');
@@ -319,7 +354,7 @@ sub find_makefile_test_requires {
 				p $module if $self->{debug};
 
 				# if we have found it already ignore it
-				if ( !$self->{requires}{$module} ) {
+				if ( !$self->{requires}{$module} && !$self->{test_requires}{$module} ) {
 					push @modules, $module;
 				}
 			}
@@ -327,11 +362,10 @@ sub find_makefile_test_requires {
 			# if we found a modules, process it
 			if ( scalar @modules > 0 ) {
 				p @modules if $self->{debug};
-				$self->process_found_modules( \@modules );
+				$self->process_found_modules( 'recommends', \@modules );
 			}
 		}
 	}
-
 	return;
 }
 
@@ -339,7 +373,8 @@ sub find_makefile_test_requires {
 # composed method - process_found_modules
 #######
 sub process_found_modules {
-	my $self = shift;
+	my $self     = shift;
+	my $grouping = shift;
 
 	my $modules_ref = shift;
 	my @items       = ();
@@ -359,9 +394,16 @@ sub process_found_modules {
 
 		#deal with ''
 		next if $module eq NONE;
+		p $module if $self->{debug};
+
 		if ( $module =~ /^$self->{package_name}/sxm ) {
 
 			# don't include our own packages here
+			next;
+		}
+		if ( $module =~ /^t::/sxm ) {
+
+			# don't include our own test packages here
 			next;
 		}
 		if ( $module =~ /Mojo/sxm && !$self->{mojo} ) {
@@ -373,7 +415,7 @@ sub process_found_modules {
 			$module = 'Padre';
 		}
 
-		$self->store_modules( 'test_requires', $module );
+		$self->store_modules( $grouping, $module );
 
 	}
 	return;
@@ -386,6 +428,7 @@ sub store_modules {
 	my $self         = shift;
 	my $require_type = shift;
 	my $module       = shift;
+	p $module if $self->{debug};
 
 	my $mod;
 	my $mod_in_cpan = 0;
@@ -432,20 +475,21 @@ sub base_parent {
 	my $content = shift;
 	my $pragma  = shift;
 	my @modules = ();
-	if ( $module =~ /base|parent/sxm ) {
 
+	if ( $module =~ /base|parent|with|extends/sxm ) {
 		if ( $self->{verbose} ) {
 			say 'Info: check ' . $pragma . ' pragma: ';
 			say $content;
 		}
 
 		$content =~ s/^use (base|parent) //;
-
-		$content =~ s/^qw[\<|\(|\{|\[]\n?\t?\s*//;
-		$content =~ s/\s*[\>|\)|\}|\]];\n?\t?$//;
+		$content =~ s/\s*(q[q|w]\n?\t?)\s*//;
+		$content =~ s/([<?]|[(?]|[{?]\n?\t?)\s*//;
+		$content =~ s/\s*([>?]|[)?]|[}?])\s*//;
+		$content =~ s/\s*(;\n?\t?)$//;
 		$content =~ s/(\n\t)/, /g;
-
 		@modules = split /, /, $content;
+
 		push @modules, $module;
 		p @modules if $self->{debug};
 	}
@@ -489,13 +533,15 @@ sub remove_noisy_children {
 
 				# Test for same version number
 				if ( $required_ref->{ $sorted_modules[ $n - 1 ] } eq $required_ref->{ $sorted_modules[$n] } ) {
-					say 'delete miscreant noisy children '
-						. $sorted_modules[$n] . ' ver '
-						. $required_ref->{ $sorted_modules[$n] }
-						if $self->{noisy_children};
+					if ( $self->{noisy_children} ) {
+						print "\n";
+						say 'delete miscreant noisy child '
+							. $sorted_modules[$n] . ' => '
+							. $required_ref->{ $sorted_modules[$n] };
+					}
 					try {
 						delete $required_ref->{ $sorted_modules[$n] };
-						splice( @sorted_modules, $n, 1 );
+						splice @sorted_modules, $n, 1;
 						$n--;
 					};
 					p @sorted_modules if $self->{debug};
@@ -507,6 +553,79 @@ sub remove_noisy_children {
 	return;
 }
 
+#######
+# remove_twins
+#######
+sub remove_twins {
+	my $self = shift;
+	my $required_ref = shift || return;
+	my @sorted_modules;
+	foreach my $module_name ( sort keys %{$required_ref} ) {
+		push @sorted_modules, $module_name;
+	}
+
+	p @sorted_modules if $self->{debug};
+
+	# exit if only 1 Module found
+	return if $#sorted_modules == 0;
+
+	my $n = 0;
+	while ( $sorted_modules[$n] ) {
+
+		my $dum_name    = $sorted_modules[$n];
+		my @p_score     = split /::/, $dum_name;
+		my $dum_score   = @p_score;
+		my $dum_parient = $dum_name;
+		$dum_parient =~ s/(::\w+)$//;
+
+		my $dee_score;
+		my $dee_parient;
+		my $dee_name;
+		if ( ( $n + 1 ) <= $#sorted_modules ) {
+			$n++;
+
+			# Use of implicit split to @_ is deprecated
+			$dee_name    = $sorted_modules[$n];
+			$dee_score   = @{ [ split /::/, $dee_name ] };
+			$dee_parient = $dee_name;
+			$dee_parient =~ s/(::\w+)$//;
+		}
+
+		# Checking for same parient and score
+		if ( $dum_parient eq $dee_parient && $dum_score == $dee_score ) {
+
+			# Test for same version number
+			if ( $required_ref->{ $sorted_modules[ $n - 1 ] } eq $required_ref->{ $sorted_modules[$n] } ) {
+
+				if ( $self->{twins} ) {
+					print "\n";
+					say 'i havs found twins';
+					say $dum_name . ' ('
+						. $required_ref->{ $sorted_modules[ $n - 1 ] }
+						. ') <-twins-> '
+						. $dee_name . ' ('
+						. $required_ref->{ $sorted_modules[$n] } . ')';
+				}
+
+				#Check for vailed parent
+				my $mod;
+				try {
+					$mod = CPAN::Shell->expand( 'Module', $dum_parient );
+				};
+
+				#Check parent version against a twins version
+				if ( $mod->cpan_version == $required_ref->{ $sorted_modules[$n] } ) {
+
+					say $dum_parient . ' -> ' . $mod->cpan_version . ' is the parent of these twins' if $self->{twins};
+					$required_ref->{$dum_parient} = $mod->cpan_version;
+					$self->{found_twins} = 1;
+				}
+			}
+		}
+		$n++ if ( $n == $#sorted_modules );
+	}
+	return;
+}
 
 #######
 # output_header
@@ -528,6 +647,9 @@ sub output_header {
 		when ('dzil') {
 			$self->{output}->header_dzil( $self->{package_name} );
 		}
+		when ('dist') {
+			$self->{output}->header_dist( $self->{package_name} );
+		}
 	}
 	return;
 }
@@ -542,16 +664,19 @@ sub output_main_body {
 	given ( $self->{output_format} ) {
 
 		when ('mi') {
-			$self->{output}->body_mi($title, $required_ref);
+			$self->{output}->body_mi( $title, $required_ref );
 		}
 		when ('dsl') {
-			$self->{output}->body_dsl($title, $required_ref );
+			$self->{output}->body_dsl( $title, $required_ref );
 		}
 		when ('build') {
-			$self->{output}->body_build($title, $required_ref );
+			$self->{output}->body_build( $title, $required_ref );
 		}
 		when ('dzil') {
-			$self->{output}->body_dzil($title, $required_ref );
+			$self->{output}->body_dzil( $title, $required_ref );
+		}
+		when ('dist') {
+			$self->{output}->body_dist( $title, $required_ref );
 		}
 	}
 
@@ -562,20 +687,23 @@ sub output_main_body {
 #######
 sub output_footer {
 	my $self = shift;
-	
+
 	given ( $self->{output_format} ) {
 
 		when ('mi') {
-			$self->{output}->footer_mi( );
+			$self->{output}->footer_mi();
 		}
 		when ('dsl') {
-			$self->{output}->footer_dsl( );
+			$self->{output}->footer_dsl();
 		}
 		when ('build') {
-			$self->{output}->footer_build( );
+			$self->{output}->footer_build();
 		}
 		when ('dzil') {
-			$self->{output}->footer_dzil( );
+			$self->{output}->footer_dzil();
+		}
+		when ('dist') {
+			$self->{output}->footer_dist();
 		}
 	}
 
@@ -597,7 +725,7 @@ App::Midgen - generate the requires and test requires sections for Makefile.PL
 
 =head1 VERSION
 
-This document describes App::Midgen version 0.08
+This document describes App::Midgen version: 0.10
 
 =head1 SYNOPSIS
 
@@ -647,7 +775,13 @@ For more info and sample output see L<wiki|https://github.com/kevindawson/App-Mi
 
 =item * process_found_modules
 
+=item * recommends_in_double_quote
+
+=item * recommends_in_single_quote
+
 =item * remove_noisy_children
+
+=item * remove_twins
 
 =item * run
 

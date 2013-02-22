@@ -1,15 +1,13 @@
 package App::Midgen::Roles;
 
 use v5.10;
-use strict;
-use warnings;
+use Moo::Role;
+use MooX::Types::MooseLike::Base qw(:all);
 
-our $VERSION = '0.08';
+our $VERSION = '0.10';
 use English qw( -no_match_vars ); # Avoids reg-ex performance penalty
 local $OUTPUT_AUTOFLUSH = 1;
 
-use Moo::Role;
-use MooX::Types::MooseLike::Base qw(:all);
 use Carp;
 
 #######
@@ -79,7 +77,7 @@ has 'noisy_children' => (
 has 'output_format' => (
 	is  => 'ro',
 	isa => sub {
-		my $format = { dsl => 1, mi => 1, build => 1, dzil => 1};
+		my $format = { dsl => 1, mi => 1, build => 1, dzil => 1, dist => 1 };
 		croak 'not a supported output format' unless defined $format->{ $_[0] };
 		return;
 	},
@@ -95,6 +93,7 @@ has 'padre' => (
 		croak "$_[0] this is not a Bool"
 			unless is_Bool( $_[0] );
 	},
+	lazy => 1,
 	default => sub {
 		0;
 	},
@@ -102,6 +101,18 @@ has 'padre' => (
 );
 
 has 'verbose' => (
+	is  => 'ro',
+	isa => sub {
+		croak "$_[0] this is not a Bool"
+			unless is_Bool( $_[0] );
+	},
+	default => sub {
+		0;
+	},
+	required => 1,
+);
+
+has 'twins' => (
 	is  => 'ro',
 	isa => sub {
 		croak "$_[0] this is not a Bool"
@@ -137,6 +148,21 @@ has 'test_requires' => (
 	isa => HashRef,
 );
 
+has 'recommends' => (
+	is  => 'rw',
+	isa => HashRef,
+);
+
+has 'found_twins' => (
+	is      => 'rw',
+	isa     => Bool,
+	lazy => 1,
+	default => sub {
+		0;
+	},
+	required => 1,
+);
+
 
 1;
 
@@ -152,7 +178,7 @@ App::Midgen::Roles - Package Options and Attributes used by L<App::Midgen>
 
 =head1 VERSION
 
-This document describes App::Midgen::Roles version 0.08
+This document describes App::Midgen::Roles version: 0.10
 
 =head1 OPTIONS
 
@@ -172,6 +198,8 @@ This document describes App::Midgen::Roles version 0.08
 
 =item * padre
 
+=item * twins
+
 =item * verbose
 
 =back
@@ -181,6 +209,10 @@ for more info see L<midgen>
 =head1 ACCESSORS
 
 =over 4
+
+=item * found_twins
+
+Used as a flag to re-run noisy children after descovery of twins
 
 =item * package_name
 
@@ -197,6 +229,10 @@ Some where to store required modules and version info in
 =item * test_requires
 
 Some where to store test_required modules and version info in
+
+=item * recommends
+
+Some where to store recommend modules and version info in
 
 =back
 

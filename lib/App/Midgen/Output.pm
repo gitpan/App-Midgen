@@ -1,27 +1,30 @@
 package App::Midgen::Output;
 
 use v5.10;
-use strict;
-use warnings;
+use Moo;
 
-our $VERSION = '0.08';
+our $VERSION = '0.10';
 use English qw( -no_match_vars ); # Avoids reg-ex performance penalty
 local $OUTPUT_AUTOFLUSH = 1;
 
-use Moo;
 use Carp;
 use CPAN;
 use Data::Printer {
 	caller_info => 1,
 	colored     => 1,
 };
+use constant {
+	BLANK => qq{ },
+	NONE  => q{},
+	THREE => 3,
+};
 
 #######
 # header_dsl
 #######
 sub header_dsl {
-	my $self         = shift;
-	my $package_name = shift;
+	my $self = shift;
+	my $package_name = shift // NONE;
 
 	# Let's get the current version of Module::Install::DSL
 	my $mod = CPAN::Shell->expand( 'Module', 'inc::Module::Install::DSL' );
@@ -30,8 +33,10 @@ sub header_dsl {
 	print "\n";
 	say 'use inc::Module::Install::DSL ' . $mod->cpan_version . ';';
 	print "\n";
-	say 'all_from lib/' . $package_name . '.pm';
-	say 'requires_from lib/' . $package_name . '.pm';
+	if ( $package_name ne NONE ) {
+		say 'all_from lib/' . $package_name . '.pm';
+		say 'requires_from lib/' . $package_name . '.pm';
+	}
 
 	return;
 }
@@ -68,7 +73,7 @@ sub footer_dsl {
 	my $self = shift;
 
 	print "\n";
-	say '#ToDo you should consider completing the following';
+	say '#ToDo you should consider the following';
 	say "homepage\t...";
 	say "bugtracker\t...";
 	say "repository\t...";
@@ -79,24 +84,36 @@ sub footer_dsl {
 		print "\n";
 	}
 
-	#ToDo add script
+	if ( defined -d './script' ) {
+		say 'install_script ...';
+		print "\n";
+	}
 
-	say 'no_index directory  qw{ t xt eg share inc privinc }';
+	my @no_index = $self->no_index;
+	if (@no_index) {
+		say "no_index directory qw{ @no_index }";
+		print "\n";
+	}
+
+	# say 'no_index directory  qw{ t xt eg share inc privinc }';
+	print "\n";
 
 	return;
 }
-
 
 
 #######
 # header_mi
 #######
 sub header_mi {
-	my $self         = shift;
-	my $package_name = shift;
+	my $self = shift;
+	my $package_name = shift // NONE;
+	$package_name =~ s{::}{/};
 
 	print "\n";
-	say 'mi header underdevelopment';
+	if ( $package_name ne NONE ) {
+		say "all_from 'lib/$package_name.pm';";
+	}
 	print "\n";
 
 	return;
@@ -138,24 +155,46 @@ sub footer_mi {
 	my $self = shift;
 
 	print "\n";
-	say 'mi footer underdevelopment';
+	say '#ToDo you should consider the following';
+	say "homepage\t'...';";
+	say "bugtracker\t'...';";
+	say "repository\t'...';";
+	print "\n";
+
+	if ( defined -d './share' ) {
+		say 'install_share;';
+		print "\n";
+	}
+
+	if ( defined -d './script' ) {
+		say "install_script 'script/...';";
+		print "\n";
+	}
+
+	my @no_index = $self->no_index;
+	if (@no_index) {
+		say "no_index directory qw{ @no_index };";
+		print "\n";
+	}
+
+	# say 'no_index directory  qw{ t xt eg share inc privinc }';
+	say 'WriteAll';
 	print "\n";
 
 	return;
 }
 
 
-
 #######
 # header_build
 #######
 sub header_build {
-	my $self         = shift;
-	my $package_name = shift;
+	my $self = shift;
+	my $package_name = shift // NONE;
 
-	print "\n";
-	say 'build header underdevelopment';
-	print "\n";
+	# print "\n";
+	# say 'build header underdevelopment';
+	# print "\n";
 
 	return;
 }
@@ -192,25 +231,24 @@ sub body_build {
 sub footer_build {
 	my $self = shift;
 
-	print "\n";
-	say 'build footer underdevelopment';
+	# print "\n";
+	# say 'build footer underdevelopment';
 	print "\n";
 
 	return;
 }
 
 
-
 #######
 # header_dzil
 #######
 sub header_dzil {
-	my $self         = shift;
-	my $package_name = shift;
+	my $self = shift;
+	my $package_name = shift // NONE;
 
-	print "\n";
-	say 'dzil header underdevelopment';
-	print "\n";
+	# print "\n";
+	# say 'dzil header underdevelopment';
+	# print "\n";
 
 	return;
 }
@@ -229,10 +267,11 @@ sub body_dzil {
 			$pm_length = length $module_name;
 		}
 	}
-	if ( $title eq 'requires' ) {
-		say '"PREREQ_PM" => {';
-	} else {
-		say '"BUILD_REQUIRES" => {';
+
+	given ($title) {
+		when ('requires')      { say '"PREREQ_PM" => {'; }
+		when ('test_requires') { say '"BUILD_REQUIRES" => {'; }
+		when ('recommends')    { return; }
 	}
 
 	foreach my $module_name ( sort keys %{$required_ref} ) {
@@ -250,11 +289,104 @@ sub body_dzil {
 sub footer_dzil {
 	my $self = shift;
 
-	print "\n";
-	say 'dzil footer underdevelopment';
+	# print "\n";
+	# say 'dzil footer underdevelopment';
 	print "\n";
 
 	return;
+}
+
+
+#######
+# header_dist
+#######
+sub header_dist {
+	my $self = shift;
+	my $package_name = shift // NONE;
+
+	if ( $package_name ne NONE ) {
+		print "\n";
+		$package_name =~ s{::}{-};
+		say 'name        = ' . $package_name;
+		$package_name =~ s{-}{/};
+		say "main_module = lib/$package_name.pm";
+		print "\n";
+	}
+
+	return;
+}
+#######
+# body_dist
+#######
+sub body_dist {
+	my $self         = shift;
+	my $title        = shift;
+	my $required_ref = shift;
+	print "\n";
+
+	my $pm_length = 0;
+	foreach my $module_name ( sort keys %{$required_ref} ) {
+		if ( length $module_name > $pm_length ) {
+			$pm_length = length $module_name;
+		}
+	}
+	given ($title) {
+		when ('requires')      { say '[Prereqs]'; }
+		when ('test_requires') { say '[Prereqs / TestRequires]'; }
+		when ('recommends')    { say '[Prereqs / RuntimeRecommends]'; }
+	}
+
+	foreach my $module_name ( sort keys %{$required_ref} ) {
+
+		# my $sq_key = '"' . $module_name . '"';
+		printf "%-*s = %s\n", $pm_length, $module_name, $required_ref->{$module_name};
+
+	}
+	return;
+}
+#######
+# footer_dist
+#######
+sub footer_dist {
+	my $self = shift;
+
+	print "\n";
+	say '#ToDo you should consider the following';
+	say '[MetaResources]';
+	say 'homepage          = ...';
+	say 'bugtracker.web    = ...';
+	say 'bugtracker.mailto = ...';
+	say 'repository.url    = ...';
+	say 'repository.web    = ...';
+	say 'repository.type   = ...';
+	print "\n";
+
+	my @no_index = $self->no_index;
+	if (@no_index) {
+		say '[MetaNoIndex]';
+		for (@no_index) {
+			say "directory = $_" if $_ ne 'inc';
+		}
+		print "\n";
+	}
+
+	return;
+}
+
+#######
+# no_index
+#######
+sub no_index {
+	my $self = shift;
+
+	#ToDo add more options as and when
+	my @dirs_to_check = qw( corpus eg inc misc privinc share t xt);
+	my @dirs_found;
+
+	for (@dirs_to_check) {
+		push @dirs_found, $_ if -d $_;
+	}
+	return @dirs_found;
 }
 
 1;
@@ -271,7 +403,7 @@ App::Midgen::Output - A selection of output orinated methods used by L<App::Midg
 
 =head1 VERSION
 
-This document describes App::Midgen::Output version 0.08
+This document describes App::Midgen::Output version: 0.10
 
 =head1 METHODS
 
@@ -300,6 +432,14 @@ This document describes App::Midgen::Output version 0.08
 =item * body_dzil
 
 =item * footer_dzil
+
+=item * header_dist
+
+=item * body_dist
+
+=item * footer_dist
+
+=item * no_index
 
 =back
 
