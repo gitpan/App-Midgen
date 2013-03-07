@@ -5,7 +5,7 @@ use Moo;
 with qw( App::Midgen::Roles );
 use App::Midgen::Output;
 
-our $VERSION = '0.10';
+our $VERSION = '0.12';
 use English qw( -no_match_vars ); # Avoids reg-ex performance penalty
 local $OUTPUT_AUTOFLUSH = 1;
 
@@ -18,9 +18,10 @@ use Data::Printer {
 };
 use File::Spec;
 use File::Find qw(find);
-use File::Slurp qw(read_file write_file);
 use Module::CoreList;
 use PPI;
+use Perl::MinimumVersion;
+use version;
 use Try::Tiny;
 use constant {
 	BLANK => qq{ },
@@ -28,35 +29,35 @@ use constant {
 	THREE => 3,
 };
 
-
+# stop rlib from Fing all over cwd
+our $Working_Dir = cwd();
+our $Min_Version = 0;
 
 #######
 # run
 #######
 sub run {
 	my $self = shift;
-	$self->initialise();
+	$self->_initialise();
 	try {
 		$self->first_package_name();
 	};
-	$self->output_header();
+	$self->_output_header();
 
 	$self->find_required_modules();
-	$self->remove_noisy_children( $self->{requires} ) if ( !$self->{verbose} );
-	$self->remove_twins( $self->{requires} )          if ( !$self->{verbose} );
+	$self->find_required_test_modules();
+
+	$self->remove_noisy_children( $self->{requires} );
+	$self->remove_twins( $self->{requires} );
 
 	#run a second time if we found any twins, this will sort out twins and triplets etc
-	$self->remove_noisy_children( $self->{requires} ) if ( !$self->{verbose} && $self->{found_twins} );
+	$self->remove_noisy_children( $self->{requires} ) if $self->{found_twins};
 
-	$self->output_main_body( 'requires', $self->{requires} );
+	$self->_output_main_body( 'requires',      $self->{requires} );
+	$self->_output_main_body( 'test_requires', $self->{test_requires} );
+	$self->_output_main_body( 'recommends',    $self->{recommends} );
 
-	$self->find_required_test_modules();
-	$self->output_main_body( 'test_requires', $self->{test_requires} );
-	$self->output_main_body( 'recommends',    $self->{recommends} );
-
-	$self->output_footer();
-
-	# print "\n";
+	$self->_output_footer();
 
 	return;
 }
@@ -64,13 +65,13 @@ sub run {
 #######
 # initialise
 #######
-sub initialise {
+sub _initialise {
 	my $self = shift;
-	$self->{output} = App::Midgen::Output->new;
 
-	# stop rlib from Fing all over cwd
-	$self->{working_dir} = cwd();
-	say 'working in dir: ' . $self->{working_dir} if $self->{debug};
+	# let's give output a copy also to stop it being Fup as well suspect Tiny::Path
+	say 'working in dir: ' . $Working_Dir if $self->{debug};
+
+	$self->{output} = App::Midgen::Output->new();
 
 	# set up cpan bit's as well as checking we are up to date
 	CPAN::HandleConfig->load;
@@ -86,7 +87,7 @@ sub first_package_name {
 	my $self = shift;
 
 	try {
-		find( sub { find_package_names($self); }, File::Spec->catfile( $self->{working_dir}, 'lib' ) );
+		find( sub { _find_package_names($self); }, File::Spec->catfile( $Working_Dir, 'lib' ) );
 	};
 
 	p $self->{package_names} if $self->{debug};
@@ -100,7 +101,7 @@ sub first_package_name {
 #######
 # find_package_name
 #######
-sub find_package_names {
+sub _find_package_names {
 	my $self     = shift;
 	my $filename = $_;
 	state $files_checked;
@@ -112,10 +113,13 @@ sub find_package_names {
 	return if $filename !~ /[.]pm$/sxm;
 
 	# Load a Document from a file
-	my $document = PPI::Document->new($filename);
+	$self->{ppi_document} = PPI::Document->new($filename);
+	try {
+		$self->min_version();
+	};
 
 	# Extract package names
-	push @{ $self->{package_names} }, $document->find_first('PPI::Statement::Package')->namespace;
+	push @{ $self->{package_names} }, $self->{ppi_document}->find_first('PPI::Statement::Package')->namespace;
 	$files_checked++;
 
 	return;
@@ -129,7 +133,7 @@ sub find_required_modules {
 	my $self = shift;
 
 	# By default we shell only check lib and script (to bin or not?)
-	my @posiable_directories_to_search = map { File::Spec->catfile( $self->{working_dir}, $_ ) } qw( lib script );
+	my @posiable_directories_to_search = map { File::Spec->catfile( $Working_Dir, $_ ) } qw( script bin lib );
 
 	my @directories_to_search = ();
 	for my $directory (@posiable_directories_to_search) {
@@ -140,7 +144,7 @@ sub find_required_modules {
 	p @directories_to_search if $self->{debug};
 
 	try {
-		find( sub { find_makefile_requires($self); }, @directories_to_search );
+		find( sub { _find_makefile_requires($self); }, @directories_to_search );
 	};
 
 	return;
@@ -152,7 +156,8 @@ sub find_required_modules {
 sub find_required_test_modules {
 	my $self = shift;
 
-	my @posiable_directories_to_search = map { File::Spec->catfile( $self->{working_dir}, $_ ) } qw( t );
+	# By default we shell only check t\ (to xt\ or not?)
+	my @posiable_directories_to_search = map { File::Spec->catfile( $Working_Dir, $_ ) } qw( t );
 	my @directories_to_search = ();
 	for my $directory (@posiable_directories_to_search) {
 		if ( defined -d $directory ) {
@@ -161,7 +166,7 @@ sub find_required_test_modules {
 	}
 
 	try {
-		find( sub { find_makefile_test_requires($self); }, @directories_to_search );
+		find( sub { _find_makefile_test_requires($self); }, @directories_to_search );
 	};
 
 	return;
@@ -169,164 +174,183 @@ sub find_required_test_modules {
 }
 
 #######
-# find_makefile_requires
+# _find_makefile_requires
 #######
-sub find_makefile_requires {
+sub _find_makefile_requires {
 	my $self     = shift;
 	my $filename = $_;
-	my $document = PPI::Document->new($filename);
-	return
-		unless ( defined $document->find('PPI::Statement::Package')
-		|| $document->find('PPI::Token::Comment') =~ /perl$/ );
+	$self->{ppi_document} = PPI::Document->new($filename);
+	my $is_script = 0;
 
-	if ( $self->{verbose} ) {
-		say 'looking for requires in -> ' . $filename;
+	given ($filename) {
+		when (m/[.]pm$/) { say 'looking for requires in (.pm)-> ' . $filename if $self->{verbose}; }
+		when (m/[.]\w{2,4}$/) { say 'rejecting ' . $filename if $self->{verbose}; return; }
+		default { return if not $self->_is_perlfile($filename); $is_script = 1; }
 	}
+	try {
+		$self->min_version() if $is_script;
+	};
 
-	my $ppi_i = $document->find('PPI::Statement::Include');
-	p $ppi_i if $self->{debug};
+	my $ppi_i = $self->{ppi_document}->find('PPI::Statement::Include');
 
+	my @modules;
 	if ($ppi_i) {
 		foreach my $include ( @{$ppi_i} ) {
-			p $include if $self->{debug};
 			next if $include->type eq 'no';
 
-			my @modules = $include->module;
+			push @modules, $include->module;
+
 			p @modules if $self->{debug};
-			if ( !$self->{base_parent} ) {
-				my @base_parent_modules = $self->base_parent( $include->module, $include->content, $include->pragma );
-				if (@base_parent_modules) {
-					@modules = @base_parent_modules;
-				}
+			my @base_parent_modules = $self->base_parent( $include->module, $include->content, $include->pragma );
+			if (@base_parent_modules) {
 
-			}
-
-			foreach my $module (@modules) {
-				p $module if $self->{debug};
-
-				if ( !$self->{core} ) {
-					p $module if $self->{debug};
-
-					# hash with core modules to process regardless
-					my $ignore_core = { 'File::Path' => 1, };
-					if ( !$ignore_core->{$module} ) {
-						next if Module::CoreList->first_release($module);
-					}
-				}
-
-				#deal with ''
-				next if $module eq NONE;
-				if ( $module =~ /^$self->{package_name}/sxm ) {
-
-					# Tommy here is were we ignore current package children
-					# don't include our own packages here
-					next;
-				}
-				if ( $module =~ /Mojo/sxm && !$self->{mojo} ) {
-					$module = 'Mojolicious';
-				}
-				if ( $module =~ /^Padre/sxm && $module !~ /^Padre::Plugin::/sxm && !$self->{padre} ) {
-
-					# mark all Padre core as just Padre, for plugins
-					$module = 'Padre';
-				}
-
-				$self->store_modules( 'requires', $module );
+				push @modules, @base_parent_modules;
 			}
 		}
 	}
 
+	$self->_process_found_modules( 'requires', \@modules );
 	return;
+}
+
+########
+# is this a perl file
+#######
+sub _is_perlfile {
+	my $self     = shift;
+	my $filename = shift;
+
+	$self->{ppi_document} = PPI::Document->new($filename);
+	my $ppi_tc = $self->{ppi_document}->find('PPI::Token::Comment');
+
+	my $not_a_pl_file = 0;
+
+	if ($ppi_tc) {
+
+		# check first token-comment for a shebang
+		$not_a_pl_file = 1 if $ppi_tc->[0]->content =~ m/^#!.+perl.*$/;
+	}
+
+	if ( $self->{ppi_document}->find('PPI::Statement::Package') || $not_a_pl_file ) {
+		if ( $self->{verbose} ) {
+
+			print "looking for requires in (package) -> " if $self->{ppi_document}->find('PPI::Statement::Package');
+			print "looking for requires in (shebang) -> " if $ppi_tc->[0]->content =~ /perl/;
+			say $filename ;
+		}
+		return 1;
+	} else {
+		return 0;
+	}
+
 }
 
 
 #######
-# find_makefile_test_requires
+# _find_makefile_test_requires
 #######
-sub find_makefile_test_requires {
+sub _find_makefile_test_requires {
 	my $self     = shift;
 	my $filename = $_;
 	return if $filename !~ /[.]t|pm$/sxm;
 
-	if ( $self->{verbose} ) {
-		say 'looking for test_requires in: ' . $filename;
-	}
+	say 'looking for test_requires in: ' . $filename if $self->{verbose};
 
 	# Load a Document from a file and check use and require contents
-	my $document = PPI::Document->new($filename);
-	my $ppi_i    = $document->find('PPI::Statement::Include');
+	$self->{ppi_document} = PPI::Document->new($filename);
+	my $ppi_i = $self->{ppi_document}->find('PPI::Statement::Include');
 
+	#	try {
+	#		$self->min_version();
+	#	};
+	my @modules;
 	if ($ppi_i) {
 		foreach my $include ( @{$ppi_i} ) {
 			next if $include->type eq 'no';
-
-			my @modules = $include->module;
+			push @modules, $include->module;
 			p @modules if $self->{debug};
 
-			if ( !$self->{base_parent} ) {
-				my @base_parent_modules = $self->base_parent( $include->module, $include->content, $include->pragma );
-				if (@base_parent_modules) {
-					@modules = @base_parent_modules;
-				}
+			my @base_parent_modules = $self->base_parent( $include->module, $include->content, $include->pragma );
+			if (@base_parent_modules) {
+				push @modules, @base_parent_modules;
 			}
 
-			$self->process_found_modules( 'test_requires', \@modules );
 		}
 	}
+	p @modules if $self->{debug};
 
-	#ToDo these are realy rscommends
-	$self->recommends_in_single_quote($document);
-	$self->recommends_in_double_quote($document);
+	$self->_process_found_modules( 'test_requires', \@modules );
+
+	#These are realy recommends
+	$self->_recommends_in_single_quote(); #$self->{ppi_document});
+	$self->_recommends_in_double_quote(); #$self->{ppi_document});
 
 	return;
 }
 
+
 #######
 # composed method - recommends_in_single_quote
 #######
-sub recommends_in_single_quote {
-	my $self     = shift;
-	my $document = shift;
+sub _recommends_in_single_quote {
+	my $self = shift;
 
 	# Hack for use_ok in test files, Ouch!
 	# Now lets double check the ptq-Single hidden in a test file
-	my $ppi_tqs = $document->find('PPI::Token::Quote::Single');
+	my $ppi_tqs = $self->{ppi_document}->find('PPI::Token::Quote::Single');
 	if ($ppi_tqs) {
 		my @modules;
 		foreach my $include ( @{$ppi_tqs} ) {
-			if ( $include->content =~ /::/ && $include->content !~ /main/ && !$include->content =~ /use/ ) {
-				my $module = $include->content;
-				$module =~ s/^[']//;
-				$module =~ s/[']$//;
+			my $module = $include->content;
+			$module =~ s/^[']//;
+			$module =~ s/[']$//;
+
+			if ( $module =~ /::/ && $module !~ /main/ && !$module =~ /use/ ) {
+
 				$module =~ s/(\s[\w|\s]+)$//;
 				p $module if $self->{debug};
 
-				# if we have found it already ignore it
-				if ( !$self->{requires}{$module} && !$self->{test_requires}{$module} ) {
+				# if we have found it already ignore it - or - contains ;|=
+				if ( !$self->{requires}{$module} && !$self->{test_requires}{$module} && $module !~ /[;|=]/ ) {
 					push @modules, $module;
 				}
-			}
-			if ( $include->content =~ /::/ && $include->content =~ /use/ ) {
-				my $module = $include->content;
 
-				#ToDo test for duplicates and rubbish, part 1 done more to do
+				# if we found a module, process it
+				if ( scalar @modules > 0 ) {
+					$self->_process_found_modules( 'recommends', \@modules );
+				}
 
-				$module =~ s/^[']//;
-				$module =~ s/[']$//;
+			} elsif ( $module =~ /::/ && $module =~ /use/ ) {
+
 				$module =~ s/^use\s//;
 				$module =~ s/(\s[\s|\w|\n|.|;]+)$//;
 				p $module if $self->{debug};
 
-				# if we have found it already ignore it
-				if ( !$self->{requires}{$module} && !$self->{test_requires}{$module} ) {
+				# if we have found it already ignore it - or - contains ;|=
+				if ( !$self->{requires}{$module} && !$self->{test_requires}{$module} && $module !~ /[;|=]/ ) {
 					push @modules, $module;
+				}
+
+				# if we found a module, process it
+				if ( scalar @modules > 0 ) {
+					$self->_process_found_modules( 'recommends', \@modules );
 				}
 			}
 
-			# if we found a modules, process it
-			if ( scalar @modules > 0 ) {
-				p @modules if $self->{debug};
-				$self->process_found_modules( 'recommends', \@modules );
+			# hack for use_ok in test files
+			elsif ( $module =~ /::/ && $module !~ /main::/ ) {
+
+				p $module if $self->{debug};
+
+				# if we have found it already ignore it
+				if ( !$self->{requires}{$module} && $module !~ /\s/ ) {
+					push @modules, $module;
+				}
+
+				# if we found a module, process it
+				if ( scalar @modules > 0 ) {
+					$self->_process_found_modules( 'test_requires', \@modules );
+				}
 			}
 		}
 	}
@@ -335,12 +359,11 @@ sub recommends_in_single_quote {
 #######
 # composed method - recommends_in_double_quote
 #######
-sub recommends_in_double_quote {
-	my $self     = shift;
-	my $document = shift;
+sub _recommends_in_double_quote {
+	my $self = shift;
 
 	# Now lets double check the ptq-Doubles hidden in a test file - why O why - rtfm pbp
-	my $ppi_tqd = $document->find('PPI::Token::Quote::Double');
+	my $ppi_tqd = $self->{ppi_document}->find('PPI::Token::Quote::Double');
 	if ($ppi_tqd) {
 		my @modules;
 		foreach my $include ( @{$ppi_tqd} ) {
@@ -359,10 +382,9 @@ sub recommends_in_double_quote {
 				}
 			}
 
-			# if we found a modules, process it
+			# if we found a module, process it
 			if ( scalar @modules > 0 ) {
-				p @modules if $self->{debug};
-				$self->process_found_modules( 'recommends', \@modules );
+				$self->_process_found_modules( 'recommends', \@modules );
 			}
 		}
 	}
@@ -370,31 +392,19 @@ sub recommends_in_double_quote {
 }
 
 #######
-# composed method - process_found_modules
+# composed method - _process_found_modules
 #######
-sub process_found_modules {
-	my $self     = shift;
-	my $grouping = shift;
-
-	my $modules_ref = shift;
-	my @items       = ();
+sub _process_found_modules {
+	my $self         = shift;
+	my $require_type = shift;
+	my $modules_ref  = shift;
 
 	foreach my $module ( @{$modules_ref} ) {
-		if ( !$self->{core} ) {
 
-			p $module if $self->{debug};
-
-			# hash with core modules to process regardless
-			# don't ignore Test::More so as to get done_testing mst++
-			my $ignore_core = { 'Test::More' => 1, };
-			if ( !$ignore_core->{$module} ) {
-				next if Module::CoreList->first_release($module);
-			}
-		}
+		p $module if $self->{debug};
 
 		#deal with ''
 		next if $module eq NONE;
-		p $module if $self->{debug};
 
 		if ( $module =~ /^$self->{package_name}/sxm ) {
 
@@ -406,8 +416,11 @@ sub process_found_modules {
 			# don't include our own test packages here
 			next;
 		}
-		if ( $module =~ /Mojo/sxm && !$self->{mojo} ) {
-			$module = 'Mojolicious';
+
+		if ( $module =~ /Mojo/sxm ) {
+
+			# $self->_check_mojo_core($module);
+			$module = 'Mojolicious' if $self->_check_mojo_core($module);
 		}
 		if ( $module =~ /^Padre/sxm && $module !~ /^Padre::Plugin::/sxm && !$self->{padre} ) {
 
@@ -415,52 +428,61 @@ sub process_found_modules {
 			$module = 'Padre';
 		}
 
-		$self->store_modules( $grouping, $module );
+		next if defined $self->{requires}{$module};
+		next if defined $self->{test_requires}{$module};
 
+		p $module if $self->{debug};
+
+		# hash with core modules to process regardless
+		my $ignore_core = { 'File::Path' => 1, 'Test::More' => 1, };
+		if ( !$ignore_core->{$module} ) {
+
+			# next if Module::CoreList->first_release($module);
+			if ( Module::CoreList->first_release($module) ) {
+
+				# Skip if we are not intrested in core mofules
+				next if !$self->{core};
+
+				# Assign a temp value to indicate a core module
+				if ( $self->{core} && !$self->{zero} ) {
+					$self->{$require_type}{$module} = 'core';
+				} elsif ( $self->{core} && $self->{zero} ) {
+					$self->{$require_type}{$module} = 0;
+				}
+			}
+		}
+
+		$self->_store_modules( $require_type, $module );
 	}
 	return;
 }
 
 #######
-# composed method - store_modules
+# composed method - _store_modules
 #######
-sub store_modules {
+sub _store_modules {
 	my $self         = shift;
 	my $require_type = shift;
 	my $module       = shift;
 	p $module if $self->{debug};
 
-	my $mod;
-	my $mod_in_cpan = 0;
 	try {
-		$mod = CPAN::Shell->expand( 'Module', $module );
+		my $mod = CPAN::Shell->expand( 'Module', $module );
 
 		if ( $mod->cpan_version ne 'undef' ) {
 
 			# allocate current cpan version against module name
-			$mod_in_cpan = 1;
+			$self->{$require_type}{$module} = $mod->cpan_version;
+		} else {
+
+			# Mark as undef, ie no version in cpan, what fun!
+			$self->{$require_type}{$module} = 'undef';
 		}
 
 	}
 	catch {
-		say "caught - $require_type - $module" if $self->{debug};
-
-		# exclude modules in test dir
-		if ( $require_type eq 'requires' ) {
-			$self->{$require_type}{$module} = 0;
-		} elsif ( $module !~ /^t::/ && $self->{requires}{$module} ) {
-			$self->{$require_type}{$module} = 0;
-		} elsif ( not defined $self->{requires}{$module} ) {
-			$self->{$require_type}{$module} = 0;
-		}
-
-	}
-	finally {
-		if ( $mod_in_cpan && !$self->{requires}{$module} ) {
-
-			# allocate current cpan version against module name
-			$self->{$require_type}{$module} = $mod->cpan_version;
-		}
+		carp "caught - $require_type - $module" if $self->{debug};
+		$self->{$require_type}{$module} = '!cpan' if not defined $self->{$require_type}{$module};
 	};
 
 	return;
@@ -477,17 +499,20 @@ sub base_parent {
 	my @modules = ();
 
 	if ( $module =~ /base|parent|with|extends/sxm ) {
-		if ( $self->{verbose} ) {
+		if ( $self->{base_parent} ) {
 			say 'Info: check ' . $pragma . ' pragma: ';
 			say $content;
 		}
 
-		$content =~ s/^use (base|parent) //;
+		$content =~ s/^(use\s*) //;
+		$content =~ s/^(base|parent) //;
+		$content =~ s/^([-]norequire,)//;
 		$content =~ s/\s*(q[q|w]\n?\t?)\s*//;
 		$content =~ s/([<?]|[(?]|[{?]\n?\t?)\s*//;
 		$content =~ s/\s*([>?]|[)?]|[}?])\s*//;
 		$content =~ s/\s*(;\n?\t?)$//;
 		$content =~ s/(\n\t)/, /g;
+		$content =~ s{'}{}g;
 		@modules = split /, /, $content;
 
 		push @modules, $module;
@@ -599,7 +624,7 @@ sub remove_twins {
 
 				if ( $self->{twins} ) {
 					print "\n";
-					say 'i havs found twins';
+					say 'i have found twins';
 					say $dum_name . ' ('
 						. $required_ref->{ $sorted_modules[ $n - 1 ] }
 						. ') <-twins-> '
@@ -609,16 +634,26 @@ sub remove_twins {
 
 				#Check for vailed parent
 				my $mod;
+				my $mod_in_cpan = 0;
 				try {
 					$mod = CPAN::Shell->expand( 'Module', $dum_parient );
+					if ( $mod->cpan_version ne 'undef' ) {
+
+						# allocate current cpan version against module name
+						$mod_in_cpan = 1;
+					}
 				};
 
-				#Check parent version against a twins version
-				if ( $mod->cpan_version == $required_ref->{ $sorted_modules[$n] } ) {
+				if ($mod_in_cpan) {
 
-					say $dum_parient . ' -> ' . $mod->cpan_version . ' is the parent of these twins' if $self->{twins};
-					$required_ref->{$dum_parient} = $mod->cpan_version;
-					$self->{found_twins} = 1;
+					#Check parent version against a twins version
+					if ( $mod->cpan_version == $required_ref->{ $sorted_modules[$n] } ) {
+
+						say $dum_parient . ' -> ' . $mod->cpan_version . ' is the parent of these twins'
+							if $self->{twins};
+						$required_ref->{$dum_parient} = $mod->cpan_version;
+						$self->{found_twins} = 1;
+					}
 				}
 			}
 		}
@@ -628,9 +663,92 @@ sub remove_twins {
 }
 
 #######
-# output_header
+# _check_mojo_core
 #######
-sub output_header {
+sub _check_mojo_core {
+	my $self        = shift;
+	my $mojo_module = shift;
+	my $mojo_module_ver;
+	state $mojo_ver;
+
+	# my $mod;
+	if ( not defined $mojo_ver ) {
+		try {
+			my $mod = CPAN::Shell->expand( 'Module', 'Mojolicious' );
+			if ( $mod->cpan_version ne 'undef' ) {
+
+				# allocate current cpan version against module name
+				$mojo_ver = $mod->cpan_version;
+				p $mojo_ver if $self->{debug};
+			}
+		};
+	}
+	try {
+		my $mod = CPAN::Shell->expand( 'Module', $mojo_module );
+		if ( $mod->cpan_version ne 'undef' ) {
+
+			# allocate current cpan version against module name
+			$mojo_module_ver = $mod->cpan_version;
+		} else {
+			$mojo_module_ver = 'undef';
+		}
+	};
+	if ( $self->{mojo} ) {
+		say 'looks like we found another mojo core module';
+		say $mojo_module . ' version ' . $mojo_module_ver;
+	}
+
+	# true if undef or version numbers match
+	# undef is true as Mojo is missing version numbers in all sub modules - Fing idiots
+	if ( $mojo_module_ver eq 'undef' ) {
+		return 1;
+	} elsif ( defined $mojo_module_ver ) {
+		if ( $mojo_ver == $mojo_module_ver ) {
+			return 1;
+		}
+	} else {
+		return 0;
+	}
+}
+
+#######
+# find min perl version
+######
+sub min_version {
+	my $self = shift;
+
+	# Create the version checking object
+	my $object = Perl::MinimumVersion->new( $self->{ppi_document} );
+
+	# Find the minimum version
+	my $minimum_version = $object->minimum_version;
+	$Min_Version =
+		  version->parse($Min_Version) > version->parse($minimum_version)
+		? version->parse($Min_Version)->numify
+		: version->parse($minimum_version)->numify;
+
+
+	my $minimum_explicit_version = $object->minimum_explicit_version;
+	$Min_Version =
+		  version->parse($Min_Version) > version->parse($minimum_explicit_version)
+		? version->parse($Min_Version)->numify
+		: version->parse($minimum_explicit_version)->numify;
+
+	my $minimum_syntax_version = $object->minimum_syntax_version;
+	$Min_Version =
+		  version->parse($Min_Version) > version->parse($minimum_syntax_version)
+		? version->parse($Min_Version)->numify
+		: version->parse($minimum_syntax_version)->numify;
+
+	say 'min_version - ' . $Min_Version if $self->{debug};
+
+	return;
+}
+
+#######
+# _output_header
+#######
+sub _output_header {
 	my $self = shift;
 
 	given ( $self->{output_format} ) {
@@ -654,9 +772,9 @@ sub output_header {
 	return;
 }
 #######
-# output_main_body
+# _output_main_body
 #######
-sub output_main_body {
+sub _output_main_body {
 	my $self         = shift;
 	my $title        = shift || 'title missing';
 	my $required_ref = shift || return;
@@ -683,27 +801,27 @@ sub output_main_body {
 	return;
 }
 #######
-# output_footer
+# _output_footer
 #######
-sub output_footer {
+sub _output_footer {
 	my $self = shift;
 
 	given ( $self->{output_format} ) {
 
 		when ('mi') {
-			$self->{output}->footer_mi();
+			$self->{output}->footer_mi( $self->{package_name} );
 		}
 		when ('dsl') {
-			$self->{output}->footer_dsl();
+			$self->{output}->footer_dsl( $self->{package_name} );
 		}
 		when ('build') {
-			$self->{output}->footer_build();
+			$self->{output}->footer_build( $self->{package_name} );
 		}
 		when ('dzil') {
-			$self->{output}->footer_dzil();
+			$self->{output}->footer_dzil( $self->{package_name} );
 		}
 		when ('dist') {
-			$self->{output}->footer_dist();
+			$self->{output}->footer_dist( $self->{package_name} );
 		}
 	}
 
@@ -721,15 +839,15 @@ __END__
 
 =head1 NAME
 
-App::Midgen - generate the requires and test requires sections for Makefile.PL
+App::Midgen - Check B<requires> & B<test_rerquires> of your Package for CPAN inclusion.
 
 =head1 VERSION
 
-This document describes App::Midgen version: 0.10
+This document describes App::Midgen version: 0.12
 
 =head1 SYNOPSIS
 
-Change to root of package and run
+Change to the root of your package and run
 
  midgen
 
@@ -737,13 +855,41 @@ Now with a Getopt --help or -?
 
  midgen -?
 
-See L<midgen> for more info.
+See L<midgen> for cmd line option info.
  
 =head1 DESCRIPTION
 
+This is an aid to present a packages module requirements by scanning 
+the package, 
+then displaying in a familiar format with the current version number from CPAN.
+
 This started out as a way of generating the core for a Module::Install::DSL Makefile.PL, 
-why DSL because it's nice and clean, so now I can generate the contents when I want, 
-rather than as I add new use and require statements, and because Adam kicked me :)
+why DSL because it's nice and clean, 
+so now you can generate the contents and check when you want, 
+yes it's another L<PPI> powered app.
+
+All output goes to STDOUT, so you can use it as you see fit.
+
+=head3 CPAN Version Number Displayed
+
+=over 4
+
+=item * NN.nnnnnn we got the current version number from CPAN (numify)
+
+=item * 'undef' no version number returned by CPAN
+
+=item * 'core' indicates the module is a perl core module
+
+=item * '!cpan' must be local, one of yours. Not in CPAN, Not in core.
+
+=back
+
+I<Food for thought, if we update our Modules, 
+don't we want our users to use the current version, 
+so should we not by default do the same with others Modules. 
+Thus we always show the current version number, regardless.>
+
+We also display some other info to complement the modules we have found.
 
 For more info and sample output see L<wiki|https://github.com/kevindawson/App-Midgen/wiki>
 
@@ -753,39 +899,38 @@ For more info and sample output see L<wiki|https://github.com/kevindawson/App-Mi
 
 =item * base_parent
 
-=item * find_makefile_requires
-
-=item * find_makefile_test_requires
-
-=item * find_package_names
+Check inside base/parent pragmas for modules to include
 
 =item * find_required_modules
 
+Search for Includes B<use> and B<require> in package modules
+
 =item * find_required_test_modules
+
+Search for Includes B<use> and B<require> in test scripts, 
+also B<use_ok>, I<plus some other patterns along the way.>
 
 =item * first_package_name
 
-=item * initialise
+Assume first package found is your packages name
 
-=item * output_footer
+=item * min_version
 
-=item * output_header
-
-=item * output_main_body
-
-=item * process_found_modules
-
-=item * recommends_in_double_quote
-
-=item * recommends_in_single_quote
+Uses L<Perl::MinimumVersion> to find the minimum version of your package by taking a quick look, 
+I<note this is not a full scan see L<perlver> for a full scan>.
 
 =item * remove_noisy_children
 
+Parent A::B has noisy Children A::B::C and A::B::D all with same version number.
+
 =item * remove_twins
+
+Twins E::F::G and E::F::H  have a parent E::F with same version number, 
+so we add a parent E::F and re-test for noisy children, 
+catching triplets along the way.
 
 =item * run
 
-=item * store_modules
 
 =back
 
@@ -801,8 +946,15 @@ L<App::Midgen::Roles>, L<App::Midgen::Output>,
 
 =head1 INCOMPATIBILITIES
 
-None reported.
+After some reflection, we do not scan xt/... 
+as the methods by which the modules Included are varied, 
+this is best left to the module Author. 
 
+=head1 WARNINGS
+
+You should have access to L<http://www.cpan.org/>, or one of it's mirrors.
+
+Start-up may be slow, especially if it we need to do the equivalent of, CPAN reload index.
 
 =head1 BUGS AND LIMITATIONS
 
@@ -817,11 +969,17 @@ Kevin Dawson E<lt>bowtie@cpan.orgE<gt>
 
 =head2 CONTRIBUTORS
 
-none at present
+Ahmad M. Zawawi E<lt>ahmad.zawawi@gmail.comE<gt>
+
+Matt S. Trout E<lt>mst@shadowcat.co.ukE<gt>
+
+Tommy Butler E<lt>ace@tommybutler.meE<gt>
 
 =head1 COPYRIGHT
 
-Copyright E<copy> 2013 AUTHOR and CONTRIBUTORS as listed above.
+Copyright E<copy> 2013 the App:Midgen L</AUTHOR> and L</CONTRIBUTORS> 
+as listed above.
+
 
 =head1 LICENSE
 
@@ -857,4 +1015,6 @@ SUCH HOLDER OR OTHER PARTY HAS BEEN ADVISED OF THE POSSIBILITY OF
 SUCH DAMAGES.
 
 =cut
+
+
 

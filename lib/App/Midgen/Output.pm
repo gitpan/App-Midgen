@@ -3,21 +3,16 @@ package App::Midgen::Output;
 use v5.10;
 use Moo;
 
-our $VERSION = '0.10';
+our $VERSION = '0.12';
 use English qw( -no_match_vars ); # Avoids reg-ex performance penalty
 local $OUTPUT_AUTOFLUSH = 1;
 
 use Carp;
 use CPAN;
-use Data::Printer {
-	caller_info => 1,
-	colored     => 1,
-};
-use constant {
-	BLANK => qq{ },
-	NONE  => q{},
-	THREE => 3,
-};
+use Data::Printer { caller_info => 1, colored => 1, };
+use constant { BLANK => qq{ }, NONE => q{}, THREE => 3, };
+use File::Spec;
+
 
 #######
 # header_dsl
@@ -28,7 +23,7 @@ sub header_dsl {
 
 	# Let's get the current version of Module::Install::DSL
 	my $mod = CPAN::Shell->expand( 'Module', 'inc::Module::Install::DSL' );
-	$package_name =~ s{::}{/};
+	$package_name =~ s{::}{/}g;
 
 	print "\n";
 	say 'use inc::Module::Install::DSL ' . $mod->cpan_version . ';';
@@ -38,6 +33,7 @@ sub header_dsl {
 		say 'requires_from lib/' . $package_name . '.pm';
 	}
 
+	print "\n";
 	return;
 }
 #######
@@ -47,6 +43,7 @@ sub body_dsl {
 	my $self         = shift;
 	my $title        = shift;
 	my $required_ref = shift;
+	say 'perl_version ' . $App::Midgen::Min_Version if $title eq 'requires';
 	print "\n";
 
 	my $pm_length = 0;
@@ -64,6 +61,7 @@ sub body_dsl {
 			printf "%s %-*s %s\n", $title, $pm_length, $module_name, $required_ref->{$module_name};
 		}
 	}
+	print "\n";
 	return;
 }
 #######
@@ -71,21 +69,26 @@ sub body_dsl {
 #######
 sub footer_dsl {
 	my $self = shift;
+	my $package_name = shift // NONE;
+	$package_name =~ s{::}{-}g;
 
 	print "\n";
-	say '#ToDo you should consider the following';
-	say "homepage\t...";
-	say "bugtracker\t...";
-	say "repository\t...";
+	say '# ToDo you should consider the following';
+	say "homepage    https://github.com/.../$package_name";
+	say "bugtracker  https://github.com/.../$package_name/issues";
+	say "repository  git://github.com/.../$package_name.git";
 
 	print "\n";
-	if ( defined -d './share' ) {
+	if ( defined -d File::Spec->catfile( $App::Midgen::Working_Dir, './share' ) ) {
 		say 'install_share';
 		print "\n";
 	}
 
-	if ( defined -d './script' ) {
+	if ( defined -d File::Spec->catfile( $App::Midgen::Working_Dir, './script' ) ) {
 		say 'install_script ...';
+		print "\n";
+	} elsif ( defined -d File::Spec->catfile( $App::Midgen::Working_Dir, './bin' ) ) {
+		say "install_script bin/...";
 		print "\n";
 	}
 
@@ -95,7 +98,6 @@ sub footer_dsl {
 		print "\n";
 	}
 
-	# say 'no_index directory  qw{ t xt eg share inc privinc }';
 	print "\n";
 
 	return;
@@ -108,10 +110,18 @@ sub footer_dsl {
 sub header_mi {
 	my $self = shift;
 	my $package_name = shift // NONE;
-	$package_name =~ s{::}{/};
+
+	# Let's get the current version of Module::Install::DSL
+	my $mod = CPAN::Shell->expand( 'Module', 'inc::Module::Install' );
+
+	print "\n";
+	say 'use inc::Module::Install ' . $mod->cpan_version . ';';
 
 	print "\n";
 	if ( $package_name ne NONE ) {
+		$package_name =~ s{::}{-}g;
+		say "name '$package_name';";
+		$package_name =~ tr{-}{/};
 		say "all_from 'lib/$package_name.pm';";
 	}
 	print "\n";
@@ -125,7 +135,6 @@ sub body_mi {
 	my $self         = shift;
 	my $title        = shift;
 	my $required_ref = shift;
-	print "\n";
 
 	my $pm_length = 0;
 	foreach my $module_name ( sort keys %{$required_ref} ) {
@@ -133,6 +142,9 @@ sub body_mi {
 			$pm_length = length $module_name;
 		}
 	}
+
+	say "perl_version '$App::Midgen::Min_Version';" if $title eq 'requires';
+	print "\n";
 
 	foreach my $module_name ( sort keys %{$required_ref} ) {
 
@@ -145,7 +157,7 @@ sub body_mi {
 		}
 
 	}
-
+	print "\n";
 	return;
 }
 #######
@@ -153,31 +165,41 @@ sub body_mi {
 #######
 sub footer_mi {
 	my $self = shift;
+	my $package_name = shift // NONE;
+	$package_name =~ s{::}{-}g;
 
 	print "\n";
-	say '#ToDo you should consider the following';
-	say "homepage\t'...';";
-	say "bugtracker\t'...';";
-	say "repository\t'...';";
+	say '# ToDo you should consider the following';
+	say "homepage    'https://github.com/.../$package_name';";
+	say "bugtracker  'https://github.com/.../$package_name/issues';";
+	say "repository  'git://github.com/.../$package_name.git';";
 	print "\n";
+	say 'Meta->add_metadata(';
+	say "\tx_contributors => [";
+	say "\t\t'brian d foy (ADOPTME) <brian.d.foy\@gmail.com>',";
+	say "\t\t'Fred Bloggs <fred\@bloggs.org>',";
+	say "\t],";
+	say ");\n";
 
-	if ( defined -d './share' ) {
+	if ( defined -d File::Spec->catfile( $App::Midgen::Working_Dir, './share' ) ) {
 		say 'install_share;';
 		print "\n";
 	}
 
-	if ( defined -d './script' ) {
+	if ( defined -d File::Spec->catfile( $App::Midgen::Working_Dir, './script' ) ) {
 		say "install_script 'script/...';";
+		print "\n";
+	} elsif ( defined -d File::Spec->catfile( $App::Midgen::Working_Dir, './bin' ) ) {
+		say "install_script 'bin/...';";
 		print "\n";
 	}
 
 	my @no_index = $self->no_index;
 	if (@no_index) {
-		say "no_index directory qw{ @no_index };";
+		say "no_index 'directory' => qw{ @no_index };";
 		print "\n";
 	}
 
-	# say 'no_index directory  qw{ t xt eg share inc privinc }';
 	say 'WriteAll';
 	print "\n";
 
@@ -192,9 +214,12 @@ sub header_build {
 	my $self = shift;
 	my $package_name = shift // NONE;
 
-	# print "\n";
-	# say 'build header underdevelopment';
-	# print "\n";
+	if ( $package_name ne NONE ) {
+		print "\n";
+		$package_name =~ s{::}{-}g;
+		say 'NAME => ' . $package_name;
+		print "\n";
+	}
 
 	return;
 }
@@ -223,6 +248,7 @@ sub body_build {
 
 	}
 	say '},';
+	print "\n";
 	return;
 }
 #######
@@ -231,8 +257,6 @@ sub body_build {
 sub footer_build {
 	my $self = shift;
 
-	# print "\n";
-	# say 'build footer underdevelopment';
 	print "\n";
 
 	return;
@@ -246,9 +270,13 @@ sub header_dzil {
 	my $self = shift;
 	my $package_name = shift // NONE;
 
-	# print "\n";
-	# say 'dzil header underdevelopment';
-	# print "\n";
+	if ( $package_name ne NONE ) {
+		print "\n";
+		say "NAME => '$package_name'";
+		$package_name =~ s{::}{/}g;
+		say "VERSION_FROM => 'lib/$package_name.pm'";
+		print "\n";
+	}
 
 	return;
 }
@@ -269,8 +297,8 @@ sub body_dzil {
 	}
 
 	given ($title) {
-		when ('requires')      { say '"PREREQ_PM" => {'; }
-		when ('test_requires') { say '"BUILD_REQUIRES" => {'; }
+		when ('requires')      { say 'PREREQ_PM => {'; }
+		when ('test_requires') { say 'BUILD_REQUIRES => {'; }
 		when ('recommends')    { return; }
 	}
 
@@ -281,6 +309,7 @@ sub body_dzil {
 
 	}
 	say '},';
+	print "\n";
 	return;
 }
 #######
@@ -288,9 +317,22 @@ sub body_dzil {
 #######
 sub footer_dzil {
 	my $self = shift;
+	my $package_name = shift // NONE;
+	$package_name =~ s{::}{-}g;
 
-	# print "\n";
-	# say 'dzil footer underdevelopment';
+	print "\n";
+	say '# ToDo you should consider the following';
+	say 'META_MERGE => {';
+	say "\tresources => {";
+	say "\t\thomepage   => 'https://github.com/.../$package_name',";
+	say "\t\trepository => 'git://github.com/.../$package_name.git',";
+	say "\t\tbugtracker => 'https://github.com/.../$package_name/issues',";
+	say "\t},";
+	say "\tx_contributors => [";
+	say "\t\t'brian d foy (ADOPTME) <brian.d.foy\@gmail.com>',";
+	say "\t\t'Fred Bloggs <fred\@bloggs.org>',";
+	say "\t],";
+	say "},";
 	print "\n";
 
 	return;
@@ -306,9 +348,9 @@ sub header_dist {
 
 	if ( $package_name ne NONE ) {
 		print "\n";
-		$package_name =~ s{::}{-};
+		$package_name =~ s{::}{-}g;
 		say 'name        = ' . $package_name;
-		$package_name =~ s{-}{/};
+		$package_name =~ tr{-}{/};
 		say "main_module = lib/$package_name.pm";
 		print "\n";
 	}
@@ -331,7 +373,7 @@ sub body_dist {
 		}
 	}
 	given ($title) {
-		when ('requires')      { say '[Prereqs]'; }
+		when ('requires') { say '[Prereqs]'; printf "%-*s = %s\n", $pm_length, 'perl', $App::Midgen::Min_Version; }
 		when ('test_requires') { say '[Prereqs / TestRequires]'; }
 		when ('recommends')    { say '[Prereqs / RuntimeRecommends]'; }
 	}
@@ -342,6 +384,7 @@ sub body_dist {
 		printf "%-*s = %s\n", $pm_length, $module_name, $required_ref->{$module_name};
 
 	}
+	print "\n";
 	return;
 }
 #######
@@ -349,18 +392,10 @@ sub body_dist {
 #######
 sub footer_dist {
 	my $self = shift;
+	my $package_name = shift // NONE;
+	$package_name =~ s{::}{-}g;
 
 	print "\n";
-	say '#ToDo you should consider the following';
-	say '[MetaResources]';
-	say 'homepage          = ...';
-	say 'bugtracker.web    = ...';
-	say 'bugtracker.mailto = ...';
-	say 'repository.url    = ...';
-	say 'repository.web    = ...';
-	say 'repository.type   = ...';
-	print "\n";
-
 	my @no_index = $self->no_index;
 	if (@no_index) {
 		say '[MetaNoIndex]';
@@ -369,6 +404,37 @@ sub footer_dist {
 		}
 		print "\n";
 	}
+
+	if ( defined -d File::Spec->catfile( $App::Midgen::Working_Dir, './share' ) ) {
+		say '[ShareDir]';
+		say 'dir = share';
+		print "\n";
+	}
+
+	if ( defined -d File::Spec->catfile( $App::Midgen::Working_Dir, './script' ) ) {
+		say '[ExecDir]';
+		say 'dir = script';
+		print "\n";
+	} elsif ( defined -d File::Spec->catfile( $App::Midgen::Working_Dir, './bin' ) ) {
+		say '[ExecDir]';
+		say 'dir = bin';
+		print "\n";
+	}
+
+	say '# ToDo you should consider the following';
+	say '[MetaResources]';
+	say "homepage          = https://github.com/.../$package_name";
+	say "bugtracker.web    = https://github.com/.../$package_name/issues";
+	say 'bugtracker.mailto = ...';
+	say "repository.url    = git://github.com/.../$package_name.git";
+	say 'repository.type   = git';
+	say "repository.web    = https://github.com/.../$package_name";
+	print "\n";
+
+	say '[Meta::Contributors]';
+	say 'contributor = brian d foy (ADOPTME) <brian.d.foy@gmail.com>';
+	say 'contributor = Fred Bloggs <fred@bloggs.org>';
+	print "\n";
 
 	return;
 }
@@ -380,11 +446,14 @@ sub no_index {
 	my $self = shift;
 
 	#ToDo add more options as and when
-	my @dirs_to_check = qw( corpus eg inc misc privinc share t xt);
+	my @dirs_to_check = qw( corpus eg examples fbp inc maint misc privinc share t xt );
 	my @dirs_found;
 
 	for (@dirs_to_check) {
-		push @dirs_found, $_ if -d $_;
+
+		#ignore synatax warning for global
+		push @dirs_found, $_
+			if -d File::Spec->catfile( $App::Midgen::Working_Dir, $_ );
 	}
 	return @dirs_found;
 }
@@ -399,11 +468,11 @@ __END__
 
 =head1 NAME
 
-App::Midgen::Output - A selection of output orinated methods used by L<App::Midgen>
+App::Midgen::Output - A collection of output orinated methods used by L<App::Midgen> 
 
 =head1 VERSION
 
-This document describes App::Midgen::Output version: 0.10
+This document describes App::Midgen::Output version: 0.12
 
 =head1 METHODS
 
@@ -441,51 +510,28 @@ This document describes App::Midgen::Output version: 0.10
 
 =item * no_index
 
+Suggest some of your local directories you can 'no_index'
+
 =back
-
-
-=head1 AUTHOR
-
-Kevin Dawson E<lt>bowtie@cpan.orgE<gt>
-
-=head2 CONTRIBUTORS
-
-none at present
-
-=head1 COPYRIGHT
-
-Copyright E<copy> 2013 AUTHOR and CONTRIBUTORS as listed above.
-
-=head1 LICENSE
-
-This program is free software; you can redistribute it and/or
-modify it under the same terms as Perl 5 itself.
 
 =head1 SEE ALSO
 
 L<App::Midgen>,
 
-=head1 DISCLAIMER OF WARRANTY
+=head1 AUTHOR
 
-BECAUSE THIS SOFTWARE IS LICENSED FREE OF CHARGE, THERE IS NO WARRANTY
-FOR THE SOFTWARE, TO THE EXTENT PERMITTED BY APPLICABLE LAW. EXCEPT WHEN
-OTHERWISE STATED IN WRITING THE COPYRIGHT HOLDERS AND/OR OTHER PARTIES
-PROVIDE THE SOFTWARE "AS IS" WITHOUT WARRANTY OF ANY KIND, EITHER
-EXPRESSED OR IMPLIED, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
-WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE. THE
-ENTIRE RISK AS TO THE QUALITY AND PERFORMANCE OF THE SOFTWARE IS WITH
-YOU. SHOULD THE SOFTWARE PROVE DEFECTIVE, YOU ASSUME THE COST OF ALL
-NECESSARY SERVICING, REPAIR, OR CORRECTION.
+See L<App::Midgen>
 
-IN NO EVENT UNLESS REQUIRED BY APPLICABLE LAW OR AGREED TO IN WRITING
-WILL ANY COPYRIGHT HOLDER, OR ANY OTHER PARTY WHO MAY MODIFY AND/OR
-REDISTRIBUTE THE SOFTWARE AS PERMITTED BY THE ABOVE LICENCE, BE
-LIABLE TO YOU FOR DAMAGES, INCLUDING ANY GENERAL, SPECIAL, INCIDENTAL,
-OR CONSEQUENTIAL DAMAGES ARISING OUT OF THE USE OR INABILITY TO USE
-THE SOFTWARE (INCLUDING BUT NOT LIMITED TO LOSS OF DATA OR DATA BEING
-RENDERED INACCURATE OR LOSSES SUSTAINED BY YOU OR THIRD PARTIES OR A
-FAILURE OF THE SOFTWARE TO OPERATE WITH ANY OTHER SOFTWARE), EVEN IF
-SUCH HOLDER OR OTHER PARTY HAS BEEN ADVISED OF THE POSSIBILITY OF
-SUCH DAMAGES.
+=head2 CONTRIBUTORS
+
+See L<App::Midgen>
+
+=head1 COPYRIGHT
+
+See L<App::Midgen>
+
+=head1 LICENSE
+
+See L<App::Midgen>
 
 =cut

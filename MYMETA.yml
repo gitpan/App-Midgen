@@ -1,5 +1,5 @@
 ---
-abstract: 'generate the requires and test requires sections for Makefile.PL'
+abstract: 'Check B<requires> & B<test_rerquires> of your Package for CPAN inclusion.'
 author:
   - 'Kevin Dawson <bowtie@cpan.org>'
 build_requires:
@@ -23,16 +23,17 @@ requires:
   Carp: 1.26
   Cwd: 3.40
   Data::Printer: 0.35
-  File::Slurp: 9999.19
   File::Spec: 3.40
   Getopt::Long: 2.38
   Module::CoreList: 2.82
   Moo: 1.000008
-  MooX::Types::MooseLike::Base: 0.21
+  MooX::Types::MooseLike::Base: 0.22
   PPI: 1.215
+  Perl::MinimumVersion: 1.32
   Pod::Usage: 1.61
   Try::Tiny: 0.12
   constant: 1.25
   lib: 0.63
-  perl: 5.010
-version: 0.10
+  perl: 5.010001
+  version: 0.9902
+version: 0.12
