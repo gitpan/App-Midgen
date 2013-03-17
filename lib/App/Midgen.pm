@@ -5,29 +5,32 @@ use Moo;
 with qw( App::Midgen::Roles );
 use App::Midgen::Output;
 
-our $VERSION = '0.12';
+# Load time and dependencies negate execution time
+# use namespace::clean -except => 'meta';
+
+our $VERSION = '0.14';
 use English qw( -no_match_vars ); # Avoids reg-ex performance penalty
 local $OUTPUT_AUTOFLUSH = 1;
 
-use CPAN;
 use Carp;
 use Cwd;
-use Data::Printer {
-	caller_info => 1,
-	colored     => 1,
-};
-use File::Spec;
+use Data::Printer { caller_info => 1, colored => 1, };
 use File::Find qw(find);
+use File::Spec;
+use MetaCPAN::API;
 use Module::CoreList;
 use PPI;
 use Perl::MinimumVersion;
-use version;
+use Perl::PrereqScanner;
+use Scalar::Util qw(looks_like_number);
 use Try::Tiny;
+
 use constant {
 	BLANK => qq{ },
 	NONE  => q{},
 	THREE => 3,
 };
+use version;
 
 # stop rlib from Fing all over cwd
 our $Working_Dir = cwd();
@@ -50,8 +53,11 @@ sub run {
 	$self->remove_noisy_children( $self->{requires} );
 	$self->remove_twins( $self->{requires} );
 
-	#run a second time if we found any twins, this will sort out twins and triplets etc
+	# Run a second time if we found any twins, this will sort out twins and triplets etc
 	$self->remove_noisy_children( $self->{requires} ) if $self->{found_twins};
+
+	# Now we have switched to MetaCPAN-Api we can hunt for noisy children in test requires
+	$self->remove_noisy_children( $self->{test_requires} );
 
 	$self->_output_main_body( 'requires',      $self->{requires} );
 	$self->_output_main_body( 'test_requires', $self->{test_requires} );
@@ -68,15 +74,13 @@ sub run {
 sub _initialise {
 	my $self = shift;
 
-	# let's give output a copy also to stop it being Fup as well suspect Tiny::Path
+	# let's give Output a copy, to stop it being Fup as well suspect Tiny::Path as-well
 	say 'working in dir: ' . $Working_Dir if $self->{debug};
 
-	$self->{output} = App::Midgen::Output->new();
+	$self->{output}  = App::Midgen::Output->new();
+	$self->{scanner} = Perl::PrereqScanner->new();
+	$self->{mcpan}   = MetaCPAN::API->new() || croak "arse: $ERRNO";
 
-	# set up cpan bit's as well as checking we are up to date
-	CPAN::HandleConfig->load;
-	CPAN::Shell::setup_output;
-	CPAN::Index->reload;
 	return;
 }
 
@@ -191,23 +195,8 @@ sub _find_makefile_requires {
 		$self->min_version() if $is_script;
 	};
 
-	my $ppi_i = $self->{ppi_document}->find('PPI::Statement::Include');
-
-	my @modules;
-	if ($ppi_i) {
-		foreach my $include ( @{$ppi_i} ) {
-			next if $include->type eq 'no';
-
-			push @modules, $include->module;
-
-			p @modules if $self->{debug};
-			my @base_parent_modules = $self->base_parent( $include->module, $include->content, $include->pragma );
-			if (@base_parent_modules) {
-
-				push @modules, @base_parent_modules;
-			}
-		}
-	}
+	my $prereqs = $self->{scanner}->scan_ppi_document( $self->{ppi_document} );
+	my @modules = $prereqs->required_modules;
 
 	$self->_process_found_modules( 'requires', \@modules );
 	return;
@@ -227,7 +216,7 @@ sub _is_perlfile {
 
 	if ($ppi_tc) {
 
-		# check first token-comment for a shebang
+		# check first token-comment for a she-bang
 		$not_a_pl_file = 1 if $ppi_tc->[0]->content =~ m/^#!.+perl.*$/;
 	}
 
@@ -258,32 +247,17 @@ sub _find_makefile_test_requires {
 
 	# Load a Document from a file and check use and require contents
 	$self->{ppi_document} = PPI::Document->new($filename);
-	my $ppi_i = $self->{ppi_document}->find('PPI::Statement::Include');
 
-	#	try {
-	#		$self->min_version();
-	#	};
-	my @modules;
-	if ($ppi_i) {
-		foreach my $include ( @{$ppi_i} ) {
-			next if $include->type eq 'no';
-			push @modules, $include->module;
-			p @modules if $self->{debug};
+	my $prereqs = $self->{scanner}->scan_ppi_document( $self->{ppi_document} );
+	my @modules = $prereqs->required_modules;
 
-			my @base_parent_modules = $self->base_parent( $include->module, $include->content, $include->pragma );
-			if (@base_parent_modules) {
-				push @modules, @base_parent_modules;
-			}
-
-		}
-	}
 	p @modules if $self->{debug};
 
 	$self->_process_found_modules( 'test_requires', \@modules );
 
-	#These are realy recommends
-	$self->_recommends_in_single_quote(); #$self->{ppi_document});
-	$self->_recommends_in_double_quote(); #$self->{ppi_document});
+	#These are really recommends
+	$self->_recommends_in_single_quote();
+	$self->_recommends_in_double_quote();
 
 	return;
 }
@@ -337,21 +311,6 @@ sub _recommends_in_single_quote {
 				}
 			}
 
-			# hack for use_ok in test files
-			elsif ( $module =~ /::/ && $module !~ /main::/ ) {
-
-				p $module if $self->{debug};
-
-				# if we have found it already ignore it
-				if ( !$self->{requires}{$module} && $module !~ /\s/ ) {
-					push @modules, $module;
-				}
-
-				# if we found a module, process it
-				if ( scalar @modules > 0 ) {
-					$self->_process_found_modules( 'test_requires', \@modules );
-				}
-			}
 		}
 	}
 	return;
@@ -406,22 +365,29 @@ sub _process_found_modules {
 		#deal with ''
 		next if $module eq NONE;
 
-		if ( $module =~ /^$self->{package_name}/sxm ) {
+		given ($module) {
+			when (/perl/sxm) {
 
-			# don't include our own packages here
-			next;
+				# ignore perl we will get it from minperl required
+				next;
+			}
+			when (/^$self->{package_name}/sxm) {
+
+				# don't include our own packages here
+				next;
+			}
+			when (/^t::/sxm) {
+
+				# don't include our own test packages here
+				next;
+			}
+			when (/Mojo/sxm) {
+
+				# $self->_check_mojo_core($module);
+				$module = 'Mojolicious' if $self->_check_mojo_core($module);
+			}
 		}
-		if ( $module =~ /^t::/sxm ) {
 
-			# don't include our own test packages here
-			next;
-		}
-
-		if ( $module =~ /Mojo/sxm ) {
-
-			# $self->_check_mojo_core($module);
-			$module = 'Mojolicious' if $self->_check_mojo_core($module);
-		}
 		if ( $module =~ /^Padre/sxm && $module !~ /^Padre::Plugin::/sxm && !$self->{padre} ) {
 
 			# mark all Padre core as just Padre, for plugins
@@ -440,7 +406,7 @@ sub _process_found_modules {
 			# next if Module::CoreList->first_release($module);
 			if ( Module::CoreList->first_release($module) ) {
 
-				# Skip if we are not intrested in core mofules
+				# Skip if we are not interested in core modules
 				next if !$self->{core};
 
 				# Assign a temp value to indicate a core module
@@ -466,59 +432,18 @@ sub _store_modules {
 	my $module       = shift;
 	p $module if $self->{debug};
 
-	try {
-		my $mod = CPAN::Shell->expand( 'Module', $module );
+	my $version = $self->get_module_version( $module, $require_type );
+	given ($version) {
 
-		if ( $mod->cpan_version ne 'undef' ) {
-
-			# allocate current cpan version against module name
-			$self->{$require_type}{$module} = $mod->cpan_version;
-		} else {
-
-			# Mark as undef, ie no version in cpan, what fun!
-			$self->{$require_type}{$module} = 'undef';
+		when ('!mcpan') {
+			$self->{$require_type}{$module} = '!mcpan' if not defined $self->{$require_type}{$module};
 		}
-
+		default {
+			$self->{$require_type}{$module} = $version;
+		}
 	}
-	catch {
-		carp "caught - $require_type - $module" if $self->{debug};
-		$self->{$require_type}{$module} = '!cpan' if not defined $self->{$require_type}{$module};
-	};
 
 	return;
-}
-
-#######
-# base_parent
-#######
-sub base_parent {
-	my $self    = shift;
-	my $module  = shift;
-	my $content = shift;
-	my $pragma  = shift;
-	my @modules = ();
-
-	if ( $module =~ /base|parent|with|extends/sxm ) {
-		if ( $self->{base_parent} ) {
-			say 'Info: check ' . $pragma . ' pragma: ';
-			say $content;
-		}
-
-		$content =~ s/^(use\s*) //;
-		$content =~ s/^(base|parent) //;
-		$content =~ s/^([-]norequire,)//;
-		$content =~ s/\s*(q[q|w]\n?\t?)\s*//;
-		$content =~ s/([<?]|[(?]|[{?]\n?\t?)\s*//;
-		$content =~ s/\s*([>?]|[)?]|[}?])\s*//;
-		$content =~ s/\s*(;\n?\t?)$//;
-		$content =~ s/(\n\t)/, /g;
-		$content =~ s{'}{}g;
-		@modules = split /, /, $content;
-
-		push @modules, $module;
-		p @modules if $self->{debug};
-	}
-	return @modules;
 }
 
 #######
@@ -616,7 +541,7 @@ sub remove_twins {
 			$dee_parient =~ s/(::\w+)$//;
 		}
 
-		# Checking for same parient and score
+		# Checking for same patient and score
 		if ( $dum_parient eq $dee_parient && $dum_score == $dee_score ) {
 
 			# Test for same version number
@@ -633,25 +558,16 @@ sub remove_twins {
 				}
 
 				#Check for vailed parent
-				my $mod;
-				my $mod_in_cpan = 0;
-				try {
-					$mod = CPAN::Shell->expand( 'Module', $dum_parient );
-					if ( $mod->cpan_version ne 'undef' ) {
+				my $version;
 
-						# allocate current cpan version against module name
-						$mod_in_cpan = 1;
-					}
-				};
+				$version = $self->get_module_version($dum_parient);
 
-				if ($mod_in_cpan) {
+				if ( looks_like_number($version) ) {
 
 					#Check parent version against a twins version
-					if ( $mod->cpan_version == $required_ref->{ $sorted_modules[$n] } ) {
-
-						say $dum_parient . ' -> ' . $mod->cpan_version . ' is the parent of these twins'
-							if $self->{twins};
-						$required_ref->{$dum_parient} = $mod->cpan_version;
+					if ( $version eq $required_ref->{ $sorted_modules[$n] } ) {
+						say $dum_parient . ' -> ' . $version . ' is the parent of these twins' if $self->{twins};
+						$required_ref->{$dum_parient} = $version;
 						$self->{found_twins} = 1;
 					}
 				}
@@ -671,28 +587,13 @@ sub _check_mojo_core {
 	my $mojo_module_ver;
 	state $mojo_ver;
 
-	# my $mod;
 	if ( not defined $mojo_ver ) {
-		try {
-			my $mod = CPAN::Shell->expand( 'Module', 'Mojolicious' );
-			if ( $mod->cpan_version ne 'undef' ) {
-
-				# allocate current cpan version against module name
-				$mojo_ver = $mod->cpan_version;
-				p $mojo_ver if $self->{debug};
-			}
-		};
+		$mojo_ver = $self->get_module_version('Mojolicious');
+		p $mojo_ver if $self->{debug};
 	}
-	try {
-		my $mod = CPAN::Shell->expand( 'Module', $mojo_module );
-		if ( $mod->cpan_version ne 'undef' ) {
 
-			# allocate current cpan version against module name
-			$mojo_module_ver = $mod->cpan_version;
-		} else {
-			$mojo_module_ver = 'undef';
-		}
-	};
+	$mojo_module_ver = $self->get_module_version($mojo_module);
+
 	if ( $self->{mojo} ) {
 		say 'looks like we found another mojo core module';
 		say $mojo_module . ' version ' . $mojo_module_ver;
@@ -710,6 +611,106 @@ sub _check_mojo_core {
 		return 0;
 	}
 }
+
+#######
+# get module version using metacpan_api
+#######
+sub get_module_version {
+	my $self         = shift;
+	my $module       = shift;
+	my $require_type = shift || undef;
+	my $cpan_version;
+	my $found = 0;
+	my $dist;
+
+	try {
+		$module =~ s/::/-/g;
+
+		# quick n dirty, get version number if module is classed as a distribution in metacpan
+		my $mod = $self->{mcpan}->release( distribution => $module );
+		$cpan_version = version->parse( $mod->{version_numified} )->numify;
+
+		# $cpan_version = $mod->{version_numified};
+
+		$found = 1;
+	}
+	catch {
+		try {
+			$module =~ s/-/::/g;
+			my $mcpan_module_info = $self->{mcpan}->module($module);
+			$dist = $mcpan_module_info->{distribution};
+
+			# mark all perl core modules with either 'core' or '0'
+			if ( $dist eq 'perl' ) {
+				if ( $self->{zero} ) {
+					$cpan_version = version->parse(0)->numify;
+				} else {
+					$cpan_version = 'core';
+				}
+				$found = 1;
+			}
+		};
+		if ( $found == 0 ) {
+			try {
+				my $mod = $self->{mcpan}->release( distribution => $dist );
+
+				# $cpan_version = $mod->{version_numified};
+				$cpan_version = version->parse( $mod->{version_numified} )->numify;
+				$found        = 1;
+				$self->mod_in_dist( $dist, $module, $require_type, $mod->{version_numified} ) if $require_type;
+			}
+		}
+	}
+	finally {
+		# not in metacpan so mark accordingly
+		$cpan_version = '!mcpan' if $found == 0;
+	};
+	return $cpan_version;
+}
+#######
+# composed method
+#######
+sub mod_in_dist {
+	my $self         = shift;
+	my $dist         = shift;
+	my $module       = shift;
+	my $require_type = shift;
+	my $version      = shift;
+
+	# say 'bong';
+	$dist =~ s/-/::/g;
+	if ( $module =~ /$dist/ ) {
+
+		# Do We need to do a degree of separation test also
+		my $dist_score = split /::/, $dist;
+		my $mod_score  = split /::/, $module;
+		unless ( ( $dist_score + 1 ) == $mod_score ) {
+			print 'Warning: this is out side of my scope, manual intervention required -> ';
+			print "module - $module  -> in dist - $dist \n";
+		}
+
+		# say 'require_type - ' . $require_type;
+		given ($require_type) {
+			when ('requires') {
+
+				# Add a what should be a parent
+				$self->{$require_type}{$dist} = version->parse($version)->numify
+					if !$self->{$require_type}{$dist};
+			}
+			when ('test_requires') {
+
+				# say 'test_requires';
+				next if $self->{requires}{$dist};
+				$self->{$require_type}{$dist} = version->parse($version)->numify
+					if !$self->{$require_type}{$dist};
+			}
+		}
+	}
+
+
+	return;
+}
+
 
 #######
 # find min perl version
@@ -754,10 +755,11 @@ sub _output_header {
 	given ( $self->{output_format} ) {
 
 		when ('mi') {
-			$self->{output}->header_mi( $self->{package_name} );
+			$self->{output}->header_mi( $self->{package_name}, $self->get_module_version('inc::Module::Install') );
 		}
 		when ('dsl') {
-			$self->{output}->header_dsl( $self->{package_name} );
+			$self->{output}
+				->header_dsl( $self->{package_name}, $self->get_module_version('inc::Module::Install::DSL') );
 		}
 		when ('build') {
 			$self->{output}->header_build( $self->{package_name} );
@@ -828,6 +830,7 @@ sub _output_footer {
 	return;
 }
 
+no Moo;
 
 1;
 
@@ -843,7 +846,7 @@ App::Midgen - Check B<requires> & B<test_rerquires> of your Package for CPAN inc
 
 =head1 VERSION
 
-This document describes App::Midgen version: 0.12
+This document describes App::Midgen version: 0.14
 
 =head1 SYNOPSIS
 
@@ -861,7 +864,8 @@ See L<midgen> for cmd line option info.
 
 This is an aid to present a packages module requirements by scanning 
 the package, 
-then displaying in a familiar format with the current version number from CPAN.
+then displaying in a familiar format with the current version number 
+from MetaCPAN.
 
 This started out as a way of generating the core for a Module::Install::DSL Makefile.PL, 
 why DSL because it's nice and clean, 
@@ -870,17 +874,15 @@ yes it's another L<PPI> powered app.
 
 All output goes to STDOUT, so you can use it as you see fit.
 
-=head3 CPAN Version Number Displayed
+=head3 MetaCPAN Version Number Displayed
 
 =over 4
 
-=item * NN.nnnnnn we got the current version number from CPAN (numify)
+=item * NN.nnnnnn we got the current version number from MetaCPAN (numify).
 
-=item * 'undef' no version number returned by CPAN
+=item * 'core' indicates the module is a perl core module.
 
-=item * 'core' indicates the module is a perl core module
-
-=item * '!cpan' must be local, one of yours. Not in CPAN, Not in core.
+=item * '!mcpan' must be local, one of yours. Not in MetaCPAN, Not in core.
 
 =back
 
@@ -897,10 +899,6 @@ For more info and sample output see L<wiki|https://github.com/kevindawson/App-Mi
 
 =over 4
 
-=item * base_parent
-
-Check inside base/parent pragmas for modules to include
-
 =item * find_required_modules
 
 Search for Includes B<use> and B<require> in package modules
@@ -914,10 +912,18 @@ also B<use_ok>, I<plus some other patterns along the way.>
 
 Assume first package found is your packages name
 
+=item * get_module_version
+
+side affect of re-factoring, helps with code readability
+
 =item * min_version
 
 Uses L<Perl::MinimumVersion> to find the minimum version of your package by taking a quick look, 
-I<note this is not a full scan see L<perlver> for a full scan>.
+I<note this is not a full scan, suggest you use L<perlver> for a full scan>.
+
+=item * mod_in_dist
+
+Check if module is in a distribution and use that version number, rather than 'undef'
 
 =item * remove_noisy_children
 
@@ -947,14 +953,15 @@ L<App::Midgen::Roles>, L<App::Midgen::Output>,
 =head1 INCOMPATIBILITIES
 
 After some reflection, we do not scan xt/... 
-as the methods by which the modules Included are varied, 
+as the methods by which the modules  are Included are various, 
 this is best left to the module Author. 
 
 =head1 WARNINGS
 
-You should have access to L<http://www.cpan.org/>, or one of it's mirrors.
+As our mantra is to show the current version of a module, 
+we do this by asking MetaCPAN directly so we are going to need to 
+connect to L<http://api.metacpan.org/v0/>.
 
-Start-up may be slow, especially if it we need to do the equivalent of, CPAN reload index.
 
 =head1 BUGS AND LIMITATIONS
 
@@ -974,6 +981,8 @@ Ahmad M. Zawawi E<lt>ahmad.zawawi@gmail.comE<gt>
 Matt S. Trout E<lt>mst@shadowcat.co.ukE<gt>
 
 Tommy Butler E<lt>ace@tommybutler.meE<gt>
+
+Neil Bowers E<lt>neilb@cpan.orgE<gt>
 
 =head1 COPYRIGHT
 
@@ -1015,6 +1024,3 @@ SUCH HOLDER OR OTHER PARTY HAS BEEN ADVISED OF THE POSSIBILITY OF
 SUCH DAMAGES.
 
 =cut
-
-
-

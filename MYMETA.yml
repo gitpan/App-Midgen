@@ -4,11 +4,11 @@ author:
   - 'Kevin Dawson <bowtie@cpan.org>'
 build_requires:
   ExtUtils::MakeMaker: 6.59
-  Test::More: 0.98
+  Test::More: 0.980
 configure_requires:
-  ExtUtils::MakeMaker: 0
+  ExtUtils::MakeMaker: 6.59
 dynamic_config: 0
-generated_by: 'ExtUtils::MakeMaker version 6.64, CPAN::Meta::Converter version 2.120921'
+generated_by: 'Module::Install version 1.06, CPAN::Meta::Converter version 2.120921'
 license: perl
 meta-spec:
   url: http://module-build.sourceforge.net/META-spec-v1.4.html
@@ -16,24 +16,36 @@ meta-spec:
 name: App-Midgen
 no_index:
   directory:
-    - t
     - inc
+    - t
+    - xt
+recommends:
+  Test::Pod: 1.460
+  Test::Pod::Coverage: 1.080
 requires:
-  CPAN: 1.9800
-  Carp: 1.26
-  Cwd: 3.40
-  Data::Printer: 0.35
-  File::Spec: 3.40
-  Getopt::Long: 2.38
-  Module::CoreList: 2.82
-  Moo: 1.000008
-  MooX::Types::MooseLike::Base: 0.22
+  Carp: 1.260
+  Cwd: 3.400
+  Data::Printer: 0.350
+  File::Spec: 3.400
+  Getopt::Long: 2.390
+  MetaCPAN::API: 0.430
+  Module::CoreList: 2.840
+  Moo: 1.001
+  MooX::Types::MooseLike: 0.230
   PPI: 1.215
-  Perl::MinimumVersion: 1.32
-  Pod::Usage: 1.61
-  Try::Tiny: 0.12
-  constant: 1.25
-  lib: 0.63
+  Perl::MinimumVersion: 1.320
+  Perl::PrereqScanner: 1.015
+  Pod::Usage: 1.610
+  Scalar::Util: 1.270
+  Time::Stamp: 1.300
+  Try::Tiny: 0.120
+  constant: 1.250
   perl: 5.010001
-  version: 0.9902
-version: 0.12
+  version: 0.990200
+resources:
+  bugtracker: https://github.com/kevindawson/App-Midgen/issues
+  homepage: https://github.com/kevindawson/App-Midgen
+  license: http://dev.perl.org/licenses/
+  repository: git://github.com/kevindawson/App-Midgen.git
+version: 0.14
+x_module_name: App::Midgen

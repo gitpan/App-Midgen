@@ -4,7 +4,10 @@ use v5.10;
 use Moo::Role;
 use MooX::Types::MooseLike::Base qw(:all);
 
-our $VERSION = '0.12';
+# Load time and dependencies negate execution time
+# use namespace::clean -except => 'meta';
+
+our $VERSION = '0.14';
 use English qw( -no_match_vars ); # Avoids reg-ex performance penalty
 local $OUTPUT_AUTOFLUSH = 1;
 
@@ -13,18 +16,6 @@ use Carp;
 #######
 # cmd line options
 #######
-
-has 'base_parent' => (
-	is  => 'ro',
-	isa => sub {
-		croak "$_[0] this is not a Bool"
-			unless is_Bool( $_[0] );
-	},
-	default => sub {
-		0;
-	},
-	required => 1,
-);
 
 has 'core' => (
 	is  => 'ro',
@@ -179,11 +170,31 @@ has 'found_twins' => (
 	required => 1,
 );
 
-has 'ppi_document' => (
+has 'mcpan' => (
 	is   => 'rw',
-	isa  => Object,
+	isa => InstanceOf['MetaCPAN::API',],
 	lazy => 1,
 );
+
+has 'output' => (
+	is   => 'rw',
+	isa  => InstanceOf['App::Midgen::Output',],
+	lazy => 1,
+);
+
+has 'scanner' => (
+	is   => 'rw',
+	isa  => InstanceOf['Perl::PrereqScanner',],
+	lazy => 1,
+);
+
+has 'ppi_document' => (
+	is   => 'rw',
+	isa  => InstanceOf['PPI::Document',],
+	lazy => 1,
+);
+
+no Moo::Role;
 
 1;
 
@@ -199,7 +210,7 @@ App::Midgen::Roles - Package Options and Attributes used by L<App::Midgen>
 
 =head1 VERSION
 
-This document describes App::Midgen::Roles version: 0.12
+This document describes App::Midgen::Roles version: 0.14
 
 =head1 METHODS
 
@@ -208,8 +219,6 @@ none as such, but we do have
 =head2 OPTIONS
 
 =over 4
-
-=item * base_parent
 
 =item * core
 
@@ -239,7 +248,15 @@ for more info see L<midgen>
 
 =item * found_twins
 
-Used as a flag to re-run noisy children after descovery of twins
+Used as a flag to re-run noisy children after discovery of twins
+
+=item * mcpan
+
+accessor to MetaCPAN::API object
+
+=item * output
+
+accessor to App::Midgen::Output object
 
 =item * package_name
 
@@ -260,6 +277,10 @@ Some where to store recommend modules and version info in
 =item * requires
 
 Some where to store required modules and version info in
+
+=item * scanner
+
+accessor to Perl::PrereqScanner object
 
 =item * test_requires
 
