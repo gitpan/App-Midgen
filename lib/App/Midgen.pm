@@ -8,7 +8,7 @@ use App::Midgen::Output;
 # Load time and dependencies negate execution time
 # use namespace::clean -except => 'meta';
 
-our $VERSION = '0.15';
+our $VERSION = '0.16';
 use English qw( -no_match_vars ); # Avoids reg-ex performance penalty
 local $OUTPUT_AUTOFLUSH = 1;
 
@@ -461,25 +461,19 @@ sub remove_noisy_children {
 
 	my $n = 0;
 	while ( $sorted_modules[$n] ) {
+		my $parent_name = $sorted_modules[$n];
 
-		my $parent_name  = $sorted_modules[$n];
-		my @p_score      = split /::/, $parent_name;
-		my $parent_score = @p_score;
-
-		my $child_score;
+		my $child_name;
 		if ( ( $n + 1 ) <= $#sorted_modules ) {
 			$n++;
-
-			# Use of implicit split to @_ is deprecated
-			my $child_name = $sorted_modules[$n];
-			$child_score = @{ [ split /::/, $child_name ] };
+			$child_name = $sorted_modules[$n];
 		}
 
 		if ( $sorted_modules[$n] =~ /^$sorted_modules[$n-1]::/ ) {
 
 			# Checking for one degree of separation
 			# ie A::B -> A::B::C is ok but A::B::C::D is not
-			if ( ( $parent_score + 1 ) == $child_score ) {
+			if ( $self->degree_separation( $parent_name, $child_name ) == 1 ) {
 
 				# Test for same version number
 				if ( $required_ref->{ $sorted_modules[ $n - 1 ] } eq $required_ref->{ $sorted_modules[$n] } ) {
@@ -523,26 +517,21 @@ sub remove_twins {
 	while ( $sorted_modules[$n] ) {
 
 		my $dum_name    = $sorted_modules[$n];
-		my @p_score     = split /::/, $dum_name;
-		my $dum_score   = @p_score;
 		my $dum_parient = $dum_name;
 		$dum_parient =~ s/(::\w+)$//;
 
-		my $dee_score;
 		my $dee_parient;
 		my $dee_name;
 		if ( ( $n + 1 ) <= $#sorted_modules ) {
 			$n++;
-
-			# Use of implicit split to @_ is deprecated
 			$dee_name    = $sorted_modules[$n];
-			$dee_score   = @{ [ split /::/, $dee_name ] };
 			$dee_parient = $dee_name;
 			$dee_parient =~ s/(::\w+)$//;
 		}
 
 		# Checking for same patient and score
-		if ( $dum_parient eq $dee_parient && $dum_score == $dee_score ) {
+		# if ( $dum_parient eq $dee_parient && $dum_score == $dee_score ) {
+		if ( $dum_parient eq $dee_parient && $self->degree_separation( $dum_name, $dee_name ) == 0 ) {
 
 			# Test for same version number
 			if ( $required_ref->{ $sorted_modules[ $n - 1 ] } eq $required_ref->{ $sorted_modules[$n] } ) {
@@ -677,19 +666,14 @@ sub mod_in_dist {
 	my $require_type = shift;
 	my $version      = shift;
 
-	# say 'bong';
 	$dist =~ s/-/::/g;
 	if ( $module =~ /$dist/ ) {
 
-		# Do We need to do a degree of separation test also
-		my $dist_score = split /::/, $dist;
-		my $mod_score  = split /::/, $module;
-		unless ( ( $dist_score + 1 ) == $mod_score ) {
+		if ( $self->degree_separation( $dist, $module ) > 1 ) {
 			print 'Warning: this is out side of my scope, manual intervention required -> ';
 			print "module - $module  -> in dist - $dist \n";
 		}
 
-		# say 'require_type - ' . $require_type;
 		given ($require_type) {
 			when ('requires') {
 
@@ -699,7 +683,6 @@ sub mod_in_dist {
 			}
 			when ('test_requires') {
 
-				# say 'test_requires';
 				next if $self->{requires}{$dist};
 				$self->{$require_type}{$dist} = $version
 					if !$self->{$require_type}{$dist};
@@ -707,10 +690,27 @@ sub mod_in_dist {
 		}
 	}
 
-
 	return;
 }
 
+#######
+# composed method degree of separation
+# parent A::B - child A::B::C
+#######
+sub degree_separation {
+	my $self   = shift;
+	my $parent = shift;
+	my $child  = shift;
+
+	# Use of implicit split to @_ is deprecated
+	my $parent_score = @{ [ split /::/, $parent ] };
+	my $child_score  = @{ [ split /::/, $child ] };
+	say 'parent - ' . $parent . ' score - ' . $parent_score if $self->{debug};
+	say 'child - ' . $child . ' score - ' . $child_score    if $self->{debug};
+
+	# switch around for a positive number
+	return $child_score - $parent_score;
+}
 
 #######
 # find min perl version
@@ -846,7 +846,7 @@ App::Midgen - Check B<requires> & B<test_rerquires> of your Package for CPAN inc
 
 =head1 VERSION
 
-This document describes App::Midgen version: 0.15
+This document describes App::Midgen version: 0.16
 
 =head1 SYNOPSIS
 
@@ -898,6 +898,10 @@ For more info and sample output see L<wiki|https://github.com/kevindawson/App-Mi
 =head1 METHODS
 
 =over 4
+
+=item * degree_separation
+
+now a seperate Method, returns an integer.
 
 =item * find_required_modules
 
