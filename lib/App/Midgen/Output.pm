@@ -6,9 +6,11 @@ use Moo;
 # Load time and dependencies negate execution time
 # use namespace::clean -except => 'meta';
 
-our $VERSION = '0.16';
+our $VERSION = '0.18';
 use English qw( -no_match_vars ); # Avoids reg-ex performance penalty
 local $OUTPUT_AUTOFLUSH = 1;
+
+use Term::ANSIColor qw( :constants colored );
 
 # use Carp;
 # use Data::Printer { caller_info => 1, colored => 1, };
@@ -26,7 +28,7 @@ sub header_dsl {
 	$package_name =~ s{::}{/}g;
 
 	print "\n";
-	say 'use inc::Module::Install::DSL ' . $mi_ver . q{;};
+	say 'use inc::Module::Install::DSL ' . colored( $mi_ver, 'yellow' ) . q{;};
 	print "\n";
 	if ( $package_name ne NONE ) {
 		say 'all_from lib/' . $package_name . '.pm';
@@ -56,12 +58,12 @@ sub body_dsl {
 	foreach my $module_name ( sort keys %{$required_ref} ) {
 
 		if ( $module_name =~ /^Win32/sxm ) {
-			printf "%s %-*s %s if win32\n", $title, $pm_length, $module_name, $required_ref->{$module_name};
+			printf "%s %-*s %s %s\n", $title, $pm_length, $module_name, $required_ref->{$module_name},
+				colored( 'if win32', 'bright_green' );
 		} else {
 			printf "%s %-*s %s\n", $title, $pm_length, $module_name, $required_ref->{$module_name};
 		}
 	}
-	print "\n";
 	return;
 }
 #######
@@ -72,13 +74,13 @@ sub footer_dsl {
 	my $package_name = shift // NONE;
 	$package_name =~ s{::}{-}g;
 
-	print "\n";
+	print BRIGHT_BLACK "\n";
 	say '# ToDo you should consider the following';
 	say "homepage    https://github.com/.../$package_name";
 	say "bugtracker  https://github.com/.../$package_name/issues";
 	say "repository  git://github.com/.../$package_name.git";
 
-	print "\n";
+	print CLEAR "\n";
 	if ( defined -d File::Spec->catdir( $App::Midgen::Working_Dir, 'share' ) ) {
 		say 'install_share';
 		print "\n";
@@ -113,7 +115,7 @@ sub header_mi {
 	my $mi_ver       = shift // NONE;
 
 	print "\n";
-	say 'use inc::Module::Install ' . $mi_ver . q{;};
+	say 'use inc::Module::Install ' . colored( $mi_ver, 'yellow' ) . q{;};
 	print "\n";
 	if ( $package_name ne NONE ) {
 		$package_name =~ s{::}{-}g;
@@ -147,14 +149,15 @@ sub body_mi {
 
 		if ( $module_name =~ /^Win32/sxm ) {
 			my $sq_key = "'$module_name'";
-			printf "%s %-*s => '%s' if win32;\n", $title, $pm_length + 2, $sq_key, $required_ref->{$module_name};
+			printf "%s %-*s => '%s' %s;\n", $title, $pm_length + 2, $sq_key, $required_ref->{$module_name},
+				colored( 'if win32', 'bright_green' );
 		} else {
 			my $sq_key = "'$module_name'";
 			printf "%s %-*s => '%s';\n", $title, $pm_length + 2, $sq_key, $required_ref->{$module_name};
 		}
 
 	}
-	print "\n";
+
 	return;
 }
 #######
@@ -165,7 +168,7 @@ sub footer_mi {
 	my $package_name = shift // NONE;
 	$package_name =~ s{::}{-}g;
 
-	print "\n";
+	print BRIGHT_BLACK "\n";
 	say '# ToDo you should consider the following';
 	say "homepage    'https://github.com/.../$package_name';";
 	say "bugtracker  'https://github.com/.../$package_name/issues';";
@@ -177,6 +180,7 @@ sub footer_mi {
 	say "\t\t'Fred Bloggs <fred\@bloggs.org>',";
 	say "\t],";
 	say ");\n";
+	print CLEAR;
 
 	if ( defined -d File::Spec->catdir( $App::Midgen::Working_Dir, 'share' ) ) {
 		say 'install_share;';
@@ -245,7 +249,7 @@ sub body_build {
 
 	}
 	say '},';
-	print "\n";
+
 	return;
 }
 #######
@@ -306,7 +310,7 @@ sub body_dzil {
 
 	}
 	say '},';
-	print "\n";
+
 	return;
 }
 #######
@@ -317,7 +321,7 @@ sub footer_dzil {
 	my $package_name = shift // NONE;
 	$package_name =~ s{::}{-}g;
 
-	print "\n";
+	print BRIGHT_BLACK "\n";
 	say '# ToDo you should consider the following';
 	say "'META_MERGE' => {";
 	say "\t'resources' => {";
@@ -330,7 +334,7 @@ sub footer_dzil {
 	say "\t\t'Fred Bloggs <fred\@bloggs.org>',";
 	say "\t],";
 	say "},";
-	print "\n";
+	print CLEAR "\n";
 
 	return;
 }
@@ -381,7 +385,7 @@ sub body_dist {
 		printf "%-*s = %s\n", $pm_length, $module_name, $required_ref->{$module_name};
 
 	}
-	print "\n";
+
 	return;
 }
 #######
@@ -418,7 +422,7 @@ sub footer_dist {
 		print "\n";
 	}
 
-	say '# ToDo you should consider the following';
+	say BRIGHT_BLACK '# ToDo you should consider the following';
 	say '[MetaResources]';
 	say "homepage          = https://github.com/.../$package_name";
 	say "bugtracker.web    = https://github.com/.../$package_name/issues";
@@ -431,7 +435,7 @@ sub footer_dist {
 	say '[Meta::Contributors]';
 	say 'contributor = brian d foy (ADOPTME) <brian.d.foy@gmail.com>';
 	say 'contributor = Fred Bloggs <fred@bloggs.org>';
-	print "\n";
+	print CLEAR "\n";
 
 	return;
 }
@@ -471,7 +475,12 @@ App::Midgen::Output - A collection of output orientated methods used by L<App::M
 
 =head1 VERSION
 
-This document describes App::Midgen::Output version: 0.16
+This document describes App::Midgen::Output version: 0.18
+
+=head1 DESCRIPTION
+
+The output format uses colour to add visualization of module version number 
+types, be that mcpan, dual-life or added distribution.
 
 =head1 METHODS
 
@@ -513,9 +522,13 @@ Suggest some of your local directories you can 'no_index'
 
 =back
 
+=head1 DEPENDENCIES
+
+L<Term::ANSIColor>
+
 =head1 SEE ALSO
 
-L<App::Midgen>,
+L<App::Midgen>
 
 =head1 AUTHOR
 

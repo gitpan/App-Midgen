@@ -7,10 +7,7 @@ use MooX::Types::MooseLike::Base qw(:all);
 # Load time and dependencies negate execution time
 # use namespace::clean -except => 'meta';
 
-our $VERSION = '0.16';
-use English qw( -no_match_vars ); # Avoids reg-ex performance penalty
-local $OUTPUT_AUTOFLUSH = 1;
-
+our $VERSION = '0.18';
 use Carp;
 
 #######
@@ -18,6 +15,18 @@ use Carp;
 #######
 
 has 'core' => (
+	is  => 'ro',
+	isa => sub {
+		croak "$_[0] this is not a Bool"
+			unless is_Bool( $_[0] );
+	},
+	default => sub {
+		0;
+	},
+	required => 1,
+);
+
+has 'dual_life' => (
 	is  => 'ro',
 	isa => sub {
 		croak "$_[0] this is not a Bool"
@@ -41,7 +50,7 @@ has 'debug' => (
 	required => 1,
 );
 
-has 'mojo' => (
+has 'experimental' => (
 	is  => 'ro',
 	isa => sub {
 		croak "$_[0] this is not a Bool"
@@ -53,56 +62,18 @@ has 'mojo' => (
 	required => 1,
 );
 
-has 'noisy_children' => (
-	is  => 'ro',
-	isa => sub {
-		croak "$_[0] this is not a Bool"
-			unless is_Bool( $_[0] );
-	},
-	default => sub {
-		0;
-	},
-	required => 1,
-);
-
-has 'output_format' => (
+has 'format' => (
 	is  => 'ro',
 	isa => sub {
 		my $format = { dsl => 1, mi => 1, build => 1, dzil => 1, dist => 1 };
 		croak 'not a supported output format' unless defined $format->{ $_[0] };
 		return;
 	},
-	default => sub {
-		'dsl';
-	},
-	required => 1,
-);
-
-has 'padre' => (
-	is  => 'ro',
-	isa => sub {
-		croak "$_[0] this is not a Bool"
-			unless is_Bool( $_[0] );
-	},
-	default => sub {
-		0;
-	},
+	default  => 'dsl',
 	required => 1,
 );
 
 has 'verbose' => (
-	is  => 'ro',
-	isa => sub {
-		croak "$_[0] this is not a Bool"
-			unless is_Bool( $_[0] );
-	},
-	default => sub {
-		0;
-	},
-	required => 1,
-);
-
-has 'twins' => (
 	is  => 'ro',
 	isa => sub {
 		croak "$_[0] this is not a Bool"
@@ -130,6 +101,12 @@ has 'zero' => (
 # some encapsulated attributes
 #######
 
+has 'numify' => (
+	is   => 'rw',
+	isa  => Bool,
+	lazy => 1,
+);
+
 has 'package_name' => (
 	is   => 'rw',
 	isa  => Str,
@@ -142,13 +119,19 @@ has 'package_names' => (
 	lazy => 1,
 );
 
-has 'requires' => (
+has 'package_requires' => (
 	is   => 'rw',
 	isa  => HashRef,
 	lazy => 1,
 );
 
 has 'test_requires' => (
+	is   => 'rw',
+	isa  => HashRef,
+	lazy => 1,
+);
+
+has 'modules' => (
 	is   => 'rw',
 	isa  => HashRef,
 	lazy => 1,
@@ -172,25 +155,25 @@ has 'found_twins' => (
 
 has 'mcpan' => (
 	is   => 'rw',
-	isa => InstanceOf['MetaCPAN::API',],
+	isa  => InstanceOf [ 'MetaCPAN::API', ],
 	lazy => 1,
 );
 
 has 'output' => (
 	is   => 'rw',
-	isa  => InstanceOf['App::Midgen::Output',],
+	isa  => InstanceOf [ 'App::Midgen::Output', ],
 	lazy => 1,
 );
 
 has 'scanner' => (
 	is   => 'rw',
-	isa  => InstanceOf['Perl::PrereqScanner',],
+	isa  => InstanceOf [ 'Perl::PrereqScanner', ],
 	lazy => 1,
 );
 
 has 'ppi_document' => (
 	is   => 'rw',
-	isa  => InstanceOf['PPI::Document',],
+	isa  => InstanceOf [ 'PPI::Document', ],
 	lazy => 1,
 );
 
@@ -210,7 +193,7 @@ App::Midgen::Roles - Package Options and Attributes used by L<App::Midgen>
 
 =head1 VERSION
 
-This document describes App::Midgen::Roles version: 0.16
+This document describes App::Midgen::Roles version: 0.18
 
 =head1 METHODS
 
@@ -224,15 +207,11 @@ none as such, but we do have
 
 =item * debug
 
-=item * mojo
+=item * dual_life
 
-=item * noisy_children
+=item * experimental
 
-=item * output_format
-
-=item * padre
-
-=item * twins
+=item * format
 
 =item * verbose
 

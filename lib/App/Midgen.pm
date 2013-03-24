@@ -8,7 +8,7 @@ use App::Midgen::Output;
 # Load time and dependencies negate execution time
 # use namespace::clean -except => 'meta';
 
-our $VERSION = '0.16';
+our $VERSION = '0.18';
 use English qw( -no_match_vars ); # Avoids reg-ex performance penalty
 local $OUTPUT_AUTOFLUSH = 1;
 
@@ -23,6 +23,7 @@ use PPI;
 use Perl::MinimumVersion;
 use Perl::PrereqScanner;
 use Scalar::Util qw(looks_like_number);
+use Term::ANSIColor qw( colored colorstrip );
 use Try::Tiny;
 
 use constant {
@@ -50,16 +51,20 @@ sub run {
 	$self->find_required_modules();
 	$self->find_required_test_modules();
 
-	$self->remove_noisy_children( $self->{requires} );
-	$self->remove_twins( $self->{requires} );
+	p $self->{modules} if $self->{experimental};
+
+	$self->remove_noisy_children( $self->{package_requires} ) if $self->{experimental};
+	$self->remove_twins( $self->{package_requires} )          if $self->{experimental};
+
 
 	# Run a second time if we found any twins, this will sort out twins and triplets etc
-	$self->remove_noisy_children( $self->{requires} ) if $self->{found_twins};
+	$self->remove_noisy_children( $self->{package_requires} ) if $self->{found_twins};
 
 	# Now we have switched to MetaCPAN-Api we can hunt for noisy children in test requires
-	$self->remove_noisy_children( $self->{test_requires} );
+	$self->remove_noisy_children( $self->{test_requires} ) if $self->{experimental};
 
-	$self->_output_main_body( 'requires',      $self->{requires} );
+
+	$self->_output_main_body( 'requires',      $self->{package_requires} );
 	$self->_output_main_body( 'test_requires', $self->{test_requires} );
 	$self->_output_main_body( 'recommends',    $self->{recommends} );
 
@@ -80,6 +85,7 @@ sub _initialise {
 	$self->{output}  = App::Midgen::Output->new();
 	$self->{scanner} = Perl::PrereqScanner->new();
 	$self->{mcpan}   = MetaCPAN::API->new() || croak "arse: $ERRNO";
+	$self->{numify}  = 0;
 
 	return;
 }
@@ -198,7 +204,7 @@ sub _find_makefile_requires {
 	my $prereqs = $self->{scanner}->scan_ppi_document( $self->{ppi_document} );
 	my @modules = $prereqs->required_modules;
 
-	$self->_process_found_modules( 'requires', \@modules );
+	$self->_process_found_modules( 'package_requires', \@modules );
 	return;
 }
 
@@ -285,7 +291,7 @@ sub _recommends_in_single_quote {
 				p $module if $self->{debug};
 
 				# if we have found it already ignore it - or - contains ;|=
-				if ( !$self->{requires}{$module} && !$self->{test_requires}{$module} && $module !~ /[;|=]/ ) {
+				if ( !$self->{package_requires}{$module} && !$self->{test_requires}{$module} && $module !~ /[;|=]/ ) {
 					push @modules, $module;
 				}
 
@@ -301,7 +307,7 @@ sub _recommends_in_single_quote {
 				p $module if $self->{debug};
 
 				# if we have found it already ignore it - or - contains ;|=
-				if ( !$self->{requires}{$module} && !$self->{test_requires}{$module} && $module !~ /[;|=]/ ) {
+				if ( !$self->{package_requires}{$module} && !$self->{test_requires}{$module} && $module !~ /[;|=]/ ) {
 					push @modules, $module;
 				}
 
@@ -336,7 +342,7 @@ sub _recommends_in_double_quote {
 				p $module if $self->{debug};
 
 				# if we have found it already ignore it
-				if ( !$self->{requires}{$module} && !$self->{test_requires}{$module} ) {
+				if ( !$self->{package_requires}{$module} && !$self->{test_requires}{$module} ) {
 					push @modules, $module;
 				}
 			}
@@ -381,42 +387,25 @@ sub _process_found_modules {
 				# don't include our own test packages here
 				next;
 			}
-			when (/Mojo/sxm) {
 
-				# $self->_check_mojo_core($module);
-				$module = 'Mojolicious' if $self->_check_mojo_core($module);
+			# when (/Mojo/sxm) {
+
+			# if ( $self->{experimental} ) {
+			# next if $self->_check_mojo_core($module, $require_type);
+			# }
+			# }
+			when (/^Padre/sxm) {
+
+				# mark all Padre core as just Padre, for plugins
+				$module = 'Padre';
 			}
 		}
 
-		if ( $module =~ /^Padre/sxm && $module !~ /^Padre::Plugin::/sxm && !$self->{padre} ) {
-
-			# mark all Padre core as just Padre, for plugins
-			$module = 'Padre';
-		}
-
-		next if defined $self->{requires}{$module};
-		next if defined $self->{test_requires}{$module};
-
+		## next if defined $self->{package_requires}{$module};
+		## next if defined $self->{test_requires}{$module};
+		$self->{modules}{$module}{count} += 1;
+		next if defined $self->{modules}{$module}{location};
 		p $module if $self->{debug};
-
-		# hash with core modules to process regardless
-		my $ignore_core = { 'File::Path' => 1, 'Test::More' => 1, };
-		if ( !$ignore_core->{$module} ) {
-
-			# next if Module::CoreList->first_release($module);
-			if ( Module::CoreList->first_release($module) ) {
-
-				# Skip if we are not interested in core modules
-				next if !$self->{core};
-
-				# Assign a temp value to indicate a core module
-				if ( $self->{core} && !$self->{zero} ) {
-					$self->{$require_type}{$module} = 'core';
-				} elsif ( $self->{core} && $self->{zero} ) {
-					$self->{$require_type}{$module} = 0;
-				}
-			}
-		}
 
 		$self->_store_modules( $require_type, $module );
 	}
@@ -432,18 +421,65 @@ sub _store_modules {
 	my $module       = shift;
 	p $module if $self->{debug};
 
+	$self->_in_corelist($module) if not defined $self->{modules}{$module}{corelist};
 	my $version = $self->get_module_version( $module, $require_type );
 	given ($version) {
 
 		when ('!mcpan') {
-			$self->{$require_type}{$module} = '!mcpan' if not defined $self->{$require_type}{$module};
+			$self->{$require_type}{$module} = colored( '!mcpan', 'magenta' );
+			$self->{modules}{$module}{location} = $require_type;
+			$self->{modules}{$module}{version}  = '!mcpan';
+		}
+		when ( 0 || 'core' ) {
+			$self->{$require_type}{$module} = $version if $self->{core};
+			$self->{modules}{$module}{location} = $require_type;
+			$self->{modules}{$module}{version} = $version if $self->{core};
 		}
 		default {
-			$self->{$require_type}{$module} = $version;
+			# if ( $self->_in_corelist($module) ) {
+			if ( $self->{modules}{$module}{corelist} ) {
+				$self->{$require_type}{$module} = colored( $version, 'bright_yellow' )
+					if ( $self->{dual_life} || $self->{core} );
+				$self->{modules}{$module}{location} = $require_type if ( $self->{dual_life} || $self->{core} );
+				$self->{modules}{$module}{version}  = $version      if ( $self->{dual_life} || $self->{core} );
+				$self->{modules}{$module}{dual_life} = 1;
+			} else {
+				$self->{$require_type}{$module} = colored( $version, 'yellow' );
+				$self->{$require_type}{$module} = colored( version->parse($version)->numify, 'yellow' )
+					if $self->{numify};
+				$self->{modules}{$module}{location} = $require_type;
+				$self->{modules}{$module}{version}  = $version;
+			}
 		}
 	}
 
 	return;
+}
+
+#######
+# composed method _in_corelist
+#######
+sub _in_corelist {
+	my $self   = shift;
+	my $module = shift;
+
+	#return 1 if defined $self->{modules}{$module}{corelist};
+
+	# hash with core modules to process regardless
+	my $ignore_core = { 'File::Path' => 1, 'Test::More' => 1, };
+
+	if ( !$ignore_core->{$module} ) {
+
+		if ( Module::CoreList->first_release($module) ) {
+			$self->{modules}{$module}{corelist} = 1;
+			return 1;
+		} else {
+			$self->{modules}{$module}{corelist} = 0;
+			return 0;
+		}
+	}
+
+	return 0;
 }
 
 #######
@@ -462,7 +498,6 @@ sub remove_noisy_children {
 	my $n = 0;
 	while ( $sorted_modules[$n] ) {
 		my $parent_name = $sorted_modules[$n];
-
 		my $child_name;
 		if ( ( $n + 1 ) <= $#sorted_modules ) {
 			$n++;
@@ -476,8 +511,10 @@ sub remove_noisy_children {
 			if ( $self->degree_separation( $parent_name, $child_name ) == 1 ) {
 
 				# Test for same version number
-				if ( $required_ref->{ $sorted_modules[ $n - 1 ] } eq $required_ref->{ $sorted_modules[$n] } ) {
-					if ( $self->{noisy_children} ) {
+				if ( colorstrip( $required_ref->{ $sorted_modules[ $n - 1 ] } ) eq
+					colorstrip( $required_ref->{ $sorted_modules[$n] } ) )
+				{
+					if ( $self->{verbose} ) {
 						print "\n";
 						say 'delete miscreant noisy child '
 							. $sorted_modules[$n] . ' => '
@@ -536,7 +573,7 @@ sub remove_twins {
 			# Test for same version number
 			if ( $required_ref->{ $sorted_modules[ $n - 1 ] } eq $required_ref->{ $sorted_modules[$n] } ) {
 
-				if ( $self->{twins} ) {
+				if ( $self->{verbose} ) {
 					print "\n";
 					say 'i have found twins';
 					say $dum_name . ' ('
@@ -555,7 +592,7 @@ sub remove_twins {
 
 					#Check parent version against a twins version
 					if ( $version eq $required_ref->{ $sorted_modules[$n] } ) {
-						say $dum_parient . ' -> ' . $version . ' is the parent of these twins' if $self->{twins};
+						say $dum_parient . ' -> ' . $version . ' is the parent of these twins' if $self->{verbose};
 						$required_ref->{$dum_parient} = $version;
 						$self->{found_twins} = 1;
 					}
@@ -571,8 +608,11 @@ sub remove_twins {
 # _check_mojo_core
 #######
 sub _check_mojo_core {
-	my $self        = shift;
-	my $mojo_module = shift;
+	my $self         = shift;
+	my $mojo_module  = shift;
+	my $require_type = shift;
+
+
 	my $mojo_module_ver;
 	state $mojo_ver;
 
@@ -583,19 +623,16 @@ sub _check_mojo_core {
 
 	$mojo_module_ver = $self->get_module_version($mojo_module);
 
-	if ( $self->{mojo} ) {
+	if ( $self->{verbose} ) {
 		say 'looks like we found another mojo core module';
 		say $mojo_module . ' version ' . $mojo_module_ver;
 	}
 
-	# true if undef or version numbers match
-	# undef is true as Mojo is missing version numbers in all sub modules - Fing idiots
-	if ( $mojo_module_ver eq 'undef' ) {
+	if ( $mojo_ver == $mojo_module_ver ) {
+		$self->{$require_type}{'Mojolicious'} = colored( $mojo_module_ver, 'bright_blue' )
+			if !$self->{modules}{'Mojolicious'};
+		$self->{modules}{'Mojolicious'}{location} = $require_type;
 		return 1;
-	} elsif ( defined $mojo_module_ver ) {
-		if ( $mojo_ver == $mojo_module_ver ) {
-			return 1;
-		}
 	} else {
 		return 0;
 	}
@@ -643,10 +680,14 @@ sub get_module_version {
 			try {
 				my $mod = $self->{mcpan}->release( distribution => $dist );
 
-				# $cpan_version = $mod->{version_numified};
+				# This is where we add a dist version to a nacked module
 				$cpan_version = $mod->{version_numified};
 				$found        = 1;
+
+				#				if ( $self->{experimental} ) {
 				$self->mod_in_dist( $dist, $module, $require_type, $mod->{version_numified} ) if $require_type;
+
+				#				}
 			}
 		}
 	}
@@ -656,6 +697,7 @@ sub get_module_version {
 	};
 	return $cpan_version;
 }
+
 #######
 # composed method
 #######
@@ -669,25 +711,21 @@ sub mod_in_dist {
 	$dist =~ s/-/::/g;
 	if ( $module =~ /$dist/ ) {
 
-		if ( $self->degree_separation( $dist, $module ) > 1 ) {
-			print 'Warning: this is out side of my scope, manual intervention required -> ';
-			print "module - $module  -> in dist - $dist \n";
-		}
+		say "module - $module  -> in dist - $dist" if $self->{verbose};
 
 		given ($require_type) {
-			when ('requires') {
+			when ('package_requires') {
 
 				# Add a what should be a parent
-				$self->{$require_type}{$dist} = $version
-					if !$self->{$require_type}{$dist};
+				$self->{$require_type}{$dist} = colored( $version, 'bright_cyan' ) if !$self->{$require_type}{$dist};
 			}
 			when ('test_requires') {
 
-				next if $self->{requires}{$dist};
-				$self->{$require_type}{$dist} = $version
-					if !$self->{$require_type}{$dist};
+				next if $self->{package_requires}{$dist};
+				$self->{$require_type}{$dist} = colored( $version, 'bright_cyan' ) if !$self->{$require_type}{$dist};
 			}
 		}
+
 	}
 
 	return;
@@ -752,23 +790,23 @@ sub min_version {
 sub _output_header {
 	my $self = shift;
 
-	given ( $self->{output_format} ) {
+	given ( $self->{format} ) {
 
-		when ('mi') {
-			$self->{output}->header_mi( $self->{package_name}, $self->get_module_version('inc::Module::Install') );
-		}
 		when ('dsl') {
 			$self->{output}
 				->header_dsl( $self->{package_name}, $self->get_module_version('inc::Module::Install::DSL') );
 		}
-		when ('build') {
-			$self->{output}->header_build( $self->{package_name} );
+		when ('mi') {
+			$self->{output}->header_mi( $self->{package_name}, $self->get_module_version('inc::Module::Install') );
+		}
+		when ('dist') {
+			$self->{output}->header_dist( $self->{package_name} );
 		}
 		when ('dzil') {
 			$self->{output}->header_dzil( $self->{package_name} );
 		}
-		when ('dist') {
-			$self->{output}->header_dist( $self->{package_name} );
+		when ('build') {
+			$self->{output}->header_build( $self->{package_name} );
 		}
 	}
 	return;
@@ -781,22 +819,22 @@ sub _output_main_body {
 	my $title        = shift || 'title missing';
 	my $required_ref = shift || return;
 
-	given ( $self->{output_format} ) {
+	given ( $self->{format} ) {
 
-		when ('mi') {
-			$self->{output}->body_mi( $title, $required_ref );
-		}
 		when ('dsl') {
 			$self->{output}->body_dsl( $title, $required_ref );
 		}
-		when ('build') {
-			$self->{output}->body_build( $title, $required_ref );
+		when ('mi') {
+			$self->{output}->body_mi( $title, $required_ref );
+		}
+		when ('dist') {
+			$self->{output}->body_dist( $title, $required_ref );
 		}
 		when ('dzil') {
 			$self->{output}->body_dzil( $title, $required_ref );
 		}
-		when ('dist') {
-			$self->{output}->body_dist( $title, $required_ref );
+		when ('build') {
+			$self->{output}->body_build( $title, $required_ref );
 		}
 	}
 
@@ -808,22 +846,22 @@ sub _output_main_body {
 sub _output_footer {
 	my $self = shift;
 
-	given ( $self->{output_format} ) {
+	given ( $self->{format} ) {
 
-		when ('mi') {
-			$self->{output}->footer_mi( $self->{package_name} );
-		}
 		when ('dsl') {
 			$self->{output}->footer_dsl( $self->{package_name} );
 		}
-		when ('build') {
-			$self->{output}->footer_build( $self->{package_name} );
+		when ('mi') {
+			$self->{output}->footer_mi( $self->{package_name} );
+		}
+		when ('dist') {
+			$self->{output}->footer_dist( $self->{package_name} );
 		}
 		when ('dzil') {
 			$self->{output}->footer_dzil( $self->{package_name} );
 		}
-		when ('dist') {
-			$self->{output}->footer_dist( $self->{package_name} );
+		when ('build') {
+			$self->{output}->footer_build( $self->{package_name} );
 		}
 	}
 
@@ -842,11 +880,11 @@ __END__
 
 =head1 NAME
 
-App::Midgen - Check B<requires> & B<test_rerquires> of your Package for CPAN inclusion.
+App::Midgen - Check B<requires> & B<test_requires> of your package for CPAN inclusion.
 
 =head1 VERSION
 
-This document describes App::Midgen version: 0.16
+This document describes App::Midgen version: 0.18
 
 =head1 SYNOPSIS
 
@@ -862,15 +900,16 @@ See L<midgen> for cmd line option info.
  
 =head1 DESCRIPTION
 
-This is an aid to present a packages module requirements by scanning 
+This is an aid to show you a packages module requirements by scanning 
 the package, 
-then displaying in a familiar format with the current version number 
+then display in a familiar format with the current version number 
 from MetaCPAN.
 
-This started out as a way of generating the core for a Module::Install::DSL Makefile.PL, 
-why DSL because it's nice and clean, 
-so now you can generate the contents and check when you want, 
-yes it's another L<PPI> powered app.
+This started as a way of generating the formatted contents for 
+a Module::Install::DSL Makefile.PL, which has now grown to support other 
+output formats, as well as the ability to show B<dual-life> and 
+B<perl core> modules, see L<midgen> for option info.
+This enables you to see which modules you have used, 
 
 All output goes to STDOUT, so you can use it as you see fit.
 
@@ -878,7 +917,7 @@ All output goes to STDOUT, so you can use it as you see fit.
 
 =over 4
 
-=item * NN.nnnnnn we got the current version number from MetaCPAN (numify).
+=item * NN.nnnnnn we got the current version number from MetaCPAN.
 
 =item * 'core' indicates the module is a perl core module.
 
@@ -891,7 +930,7 @@ don't we want our users to use the current version,
 so should we not by default do the same with others Modules. 
 Thus we always show the current version number, regardless.>
 
-We also display some other info to complement the modules we have found.
+We also display some other complementary information relevant to this package. 
 
 For more info and sample output see L<wiki|https://github.com/kevindawson/App-Midgen/wiki>
 
@@ -941,18 +980,15 @@ catching triplets along the way.
 
 =item * run
 
-
 =back
-
 
 =head1 CONFIGURATION AND ENVIRONMENT
   
 App::Midgen requires no configuration files or environment variables.
 
-
 =head1 DEPENDENCIES
 
-L<App::Midgen::Roles>, L<App::Midgen::Output>,
+L<App::Midgen::Roles>, L<App::Midgen::Output>
 
 =head1 INCOMPATIBILITIES
 
@@ -1002,7 +1038,7 @@ modify it under the same terms as Perl 5 itself.
 =head1 SEE ALSO
 
 L<Perl::PrereqScanner>,
-L<Module::Install::DSL>,
+L<Module::Install::DSL>
 
 =head1 DISCLAIMER OF WARRANTY
 
