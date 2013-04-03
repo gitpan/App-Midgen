@@ -32,6 +32,7 @@ requires:
   File::Spec: 3.4
   Getopt::Long: 2.39
   JSON::Tiny: 0.25
+  List::MoreUtils: 0.33
   MetaCPAN::API: 0.43
   Module::CoreList: 2.85
   Moo: 1.001
@@ -52,4 +53,4 @@ resources:
   homepage: https://github.com/kevindawson/App-Midgen
   license: http://dev.perl.org/licenses/
   repository: git://github.com/kevindawson/App-Midgen.git
-version: 0.18
+version: 0.20

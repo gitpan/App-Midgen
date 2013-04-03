@@ -7,7 +7,7 @@ use MooX::Types::MooseLike::Base qw(:all);
 # Load time and dependencies negate execution time
 # use namespace::clean -except => 'meta';
 
-our $VERSION = '0.18';
+our $VERSION = '0.20';
 use Carp;
 
 #######
@@ -65,7 +65,7 @@ has 'experimental' => (
 has 'format' => (
 	is  => 'ro',
 	isa => sub {
-		my $format = { dsl => 1, mi => 1, build => 1, dzil => 1, dist => 1 };
+		my $format = { dsl => 1, mi => 1, build => 1, dzil => 1, dist => 1, cfile => 1, };
 		croak 'not a supported output format' unless defined $format->{ $_[0] };
 		return;
 	},
@@ -107,41 +107,47 @@ has 'numify' => (
 	lazy => 1,
 );
 
-has 'package_name' => (
-	is   => 'rw',
-	isa  => Str,
-	lazy => 1,
-);
+#has 'distribution_name' => (
+#	is   => 'rw',
+#	isa  => Str,
+#	lazy => 1,
+#);
 
-has 'package_names' => (
-	is   => 'rw',
-	isa  => ArrayRef,
-	lazy => 1,
-);
+#has 'package_names' => (
+#	is   => 'rw',
+#	isa  => ArrayRef,
+#	lazy => 1,
+#);
 
-has 'package_requires' => (
-	is   => 'rw',
-	isa  => HashRef,
-	lazy => 1,
-);
+#has 'package_requires' => (
+#	is   => 'rw',
+#	isa  => HashRef,
+#	lazy => 1,
+#);
 
-has 'test_requires' => (
-	is   => 'rw',
-	isa  => HashRef,
-	lazy => 1,
-);
+#has 'test_requires' => (
+#	is   => 'rw',
+#	isa  => HashRef,
+#	lazy => 1,
+#);
 
-has 'modules' => (
-	is   => 'rw',
-	isa  => HashRef,
-	lazy => 1,
-);
+#has 'modules' => (
+#	is   => 'rw',
+#	isa  => HashRef,
+#	lazy => 1,
+#);
 
-has 'recommends' => (
-	is   => 'rw',
-	isa  => HashRef,
-	lazy => 1,
-);
+#has 'recommends' => (
+#	is   => 'rw',
+#	isa  => HashRef,
+#	lazy => 1,
+#);
+
+#has 'test_develop' => (
+#	is   => 'rw',
+#	isa  => HashRef,
+#	lazy => 1,
+#);
 
 has 'found_twins' => (
 	is      => 'rw',
@@ -150,32 +156,58 @@ has 'found_twins' => (
 	default => sub {
 		0;
 	},
-	required => 1,
 );
 
-has 'mcpan' => (
-	is   => 'rw',
-	isa  => InstanceOf [ 'MetaCPAN::API', ],
+#has 'mcpan' => (
+#	is   => 'rw',
+#	isa  => InstanceOf [ 'MetaCPAN::API', ],
+#	lazy => 1,
+#	handles => [ qw( module new release ) ],
+#);
+
+#has 'output' => (
+#	is   => 'rw',
+#	isa  => InstanceOf [ 'App::Midgen::Output', ],
+#	lazy => 1,
+#);
+
+#has 'scanner' => (
+#	is   => 'rw',
+#	isa  => InstanceOf [ 'Perl::PrereqScanner', ],
+#	lazy => 1,
+#);
+
+#has 'ppi_document' => (
+#	is   => 'rw',
+#	isa  => InstanceOf [ 'PPI::Document', ],
+#	lazy => 1,
+#);
+
+has 'xtest' => (
+	is => 'rw',
+	isa => Str,
 	lazy => 1,
+	default => sub {
+		'test_requires';
+	},
 );
 
-has 'output' => (
-	is   => 'rw',
-	isa  => InstanceOf [ 'App::Midgen::Output', ],
+has 'develop' => (
+	is => 'ro',
+	isa => Bool,
 	lazy => 1,
+	builder => '_develop',
 );
 
-has 'scanner' => (
-	is   => 'rw',
-	isa  => InstanceOf [ 'Perl::PrereqScanner', ],
-	lazy => 1,
-);
-
-has 'ppi_document' => (
-	is   => 'rw',
-	isa  => InstanceOf [ 'PPI::Document', ],
-	lazy => 1,
-);
+sub _develop {
+	my $self = shift;
+#	return 'running builder';
+	if ( $self->{experimental} && $self->{format} eq 'cfile' ){
+		return 1;
+	} else {
+		return 0;
+	}
+}
 
 no Moo::Role;
 
@@ -193,7 +225,7 @@ App::Midgen::Roles - Package Options and Attributes used by L<App::Midgen>
 
 =head1 VERSION
 
-This document describes App::Midgen::Roles version: 0.18
+This document describes App::Midgen::Roles version: 0.20
 
 =head1 METHODS
 

@@ -6,14 +6,14 @@ use Moo;
 # Load time and dependencies negate execution time
 # use namespace::clean -except => 'meta';
 
-our $VERSION = '0.18';
+our $VERSION = '0.20';
 use English qw( -no_match_vars ); # Avoids reg-ex performance penalty
 local $OUTPUT_AUTOFLUSH = 1;
 
 use Term::ANSIColor qw( :constants colored );
 
 # use Carp;
-# use Data::Printer { caller_info => 1, colored => 1, };
+use Data::Printer { caller_info => 1, colored => 1, };
 use constant { BLANK => qq{ }, NONE => q{}, THREE => 3, };
 use File::Spec;
 
@@ -58,8 +58,8 @@ sub body_dsl {
 	foreach my $module_name ( sort keys %{$required_ref} ) {
 
 		if ( $module_name =~ /^Win32/sxm ) {
-			printf "%s %-*s %s %s\n", $title, $pm_length, $module_name, $required_ref->{$module_name},
-				colored( 'if win32', 'bright_green' );
+			printf "%s %-*s %s %s\n", $title, $pm_length, $module_name,
+				$required_ref->{$module_name}, colored( 'if win32', 'bright_green' );
 		} else {
 			printf "%s %-*s %s\n", $title, $pm_length, $module_name, $required_ref->{$module_name};
 		}
@@ -149,8 +149,8 @@ sub body_mi {
 
 		if ( $module_name =~ /^Win32/sxm ) {
 			my $sq_key = "'$module_name'";
-			printf "%s %-*s => '%s' %s;\n", $title, $pm_length + 2, $sq_key, $required_ref->{$module_name},
-				colored( 'if win32', 'bright_green' );
+			printf "%s %-*s => '%s' %s;\n", $title, $pm_length + 2, $sq_key,
+				$required_ref->{$module_name}, colored( 'if win32', 'bright_green' );
 		} else {
 			my $sq_key = "'$module_name'";
 			printf "%s %-*s => '%s';\n", $title, $pm_length + 2, $sq_key, $required_ref->{$module_name};
@@ -218,7 +218,7 @@ sub header_build {
 	if ( $package_name ne NONE ) {
 		print "\n";
 		$package_name =~ s{::}{-}g;
-		say 'NAME => ' . $package_name;
+		say '"dist_name" => "' . $package_name.'",';
 		print "\n";
 	}
 
@@ -239,13 +239,12 @@ sub body_build {
 			$pm_length = length $module_name;
 		}
 	}
-
-	say $title . ' => {';
+	say '"'.$title.'"'. ' => {';
 
 	foreach my $module_name ( sort keys %{$required_ref} ) {
 
-		my $sq_key = "'$module_name'";
-		printf "\t %-*s => '%s',\n", $pm_length + 2, $sq_key, $required_ref->{$module_name};
+		my $sq_key = "\"$module_name\"";
+		printf "\t %-*s => \"%s\",\n", $pm_length + 2, $sq_key, $required_ref->{$module_name};
 
 	}
 	say '},';
@@ -374,7 +373,10 @@ sub body_dist {
 		}
 	}
 	given ($title) {
-		when ('requires') { say '[Prereqs]'; printf "%-*s = %s\n", $pm_length, 'perl', $App::Midgen::Min_Version; }
+		when ('requires') {
+			say '[Prereqs]';
+			printf "%-*s = %s\n", $pm_length, 'perl', $App::Midgen::Min_Version;
+		}
 		when ('test_requires') { say '[Prereqs / TestRequires]'; }
 		when ('recommends')    { say '[Prereqs / RuntimeRecommends]'; }
 	}
@@ -459,6 +461,134 @@ sub no_index {
 	return @dirs_found;
 }
 
+#######
+# header_cfile
+#######
+sub header_cfile {
+	my $self         = shift;
+	my $package_name = shift // NONE;
+	my $mi_ver       = shift // NONE;
+
+	#	$package_name =~ s{::}{-}g;
+	print BRIGHT_BLACK "\n";
+	say '# Makefile.PL';
+	say 'use inc::Module::Install ' . $mi_ver . q{;};
+
+	$package_name =~ s{::}{-}g;
+	say "name '$package_name';";
+	say "license 'perl';";
+
+	$package_name =~ tr{-}{/};
+	say "version_from 'lib/$package_name.pm';";
+
+	print "\n";
+	say 'cpanfile;';
+	say 'WriteAll;';
+	print CLEAR"\n";
+
+	return;
+}
+#######
+# body_cfile
+#######
+sub body_cfile {
+	my $self         = shift;
+	my $title        = shift;
+	my $required_ref = shift;
+
+	if ( $title eq 'requires' ) {
+		print BRIGHT_BLACK "\n";
+		say '# cpanfile';
+		print CLEAR;
+		say "requires 'perl', '" . $App::Midgen::Min_Version . "';";
+	}
+	print "\n";
+
+	my $pm_length = 0;
+	foreach my $module_name ( sort keys %{$required_ref} ) {
+		if ( length $module_name > $pm_length ) {
+			$pm_length = length $module_name;
+		}
+	}
+
+	#p $title;
+	given ($title) {
+		when ('requires') {
+			foreach my $module_name ( sort keys %{$required_ref} ) {
+
+				my $mod_name = "'$module_name',";
+				printf "%s %-*s '%s';\n", $title, $pm_length + 3, $mod_name, $required_ref->{$module_name};
+			}
+		}
+		when ('recommends') {
+			foreach my $module_name ( sort keys %{$required_ref} ) {
+				my $mod_name = "'$module_name',";
+				printf "%s %-*s '%s';\n", $title, $pm_length + 3, $mod_name, $required_ref->{$module_name};
+			}
+		}
+		when ('test_requires') {
+			say 'on test => sub {';
+			foreach my $module_name ( sort keys %{$required_ref} ) {
+				my $mod_name = "'$module_name',";
+				printf "\t%s %-*s '%s';\n", 'requires', $pm_length + 3, $mod_name, $required_ref->{$module_name};
+			}
+			say '};';
+		}
+		when ('test_develop') {
+			say 'on develop => sub {';
+			foreach my $module_name ( sort keys %{$required_ref} ) {
+				my $mod_name = "'$module_name',";
+				printf "\t%s %-*s '%s';\n", 'requires', $pm_length + 3, $mod_name, $required_ref->{$module_name};
+			}
+			say '};';
+		}
+	}
+
+
+	return;
+}
+#######
+# footer_cfile
+#######
+sub footer_cfile {
+	my $self = shift;
+	my $package_name = shift // NONE;
+	$package_name =~ s{::}{-}g;
+
+	print BRIGHT_BLACK "\n";
+
+	#	say '# ToDo you should consider the following';
+	#	say "homepage    https://github.com/.../$package_name";
+	#	say "bugtracker  https://github.com/.../$package_name/issues";
+	#	say "repository  git://github.com/.../$package_name.git";
+
+	print CLEAR "\n";
+
+	#	if ( defined -d File::Spec->catdir( $App::Midgen::Working_Dir, 'share' ) ) {
+	#		say 'install_share';
+	#		print "\n";
+	#	}
+
+	#	if ( defined -d File::Spec->catdir( $App::Midgen::Working_Dir, 'script' ) ) {
+	#		say 'install_script ...';
+	#		print "\n";
+	#	} elsif ( defined -d File::Spec->catdir( $App::Midgen::Working_Dir, 'bin' ) ) {
+	#		say "install_script bin/...";
+	#		print "\n";
+	#	}
+
+	#	my @no_index = $self->no_index;
+	#	if (@no_index) {
+	#		say "no_index directory qw{ @no_index }";
+	#		print "\n";
+	#	}
+
+	print "\n";
+
+	return;
+}
+
+
 no Moo;
 
 1;
@@ -471,16 +601,16 @@ __END__
 
 =head1 NAME
 
-App::Midgen::Output - A collection of output orientated methods used by L<App::Midgen> 
+App::Midgen::Output - A collection of output orientated methods used by L<App::Midgen>
 
 =head1 VERSION
 
-This document describes App::Midgen::Output version: 0.18
+This document describes App::Midgen::Output version: 0.20
 
 =head1 DESCRIPTION
 
-The output format uses colour to add visualization of module version number 
-types, be that mcpan, dual-life or added distribution.
+The output format uses colour to add visualization of module version number
+ types, be that mcpan, dual-life or added distribution.
 
 =head1 METHODS
 
@@ -497,6 +627,12 @@ types, be that mcpan, dual-life or added distribution.
 =item * body_mi
 
 =item * footer_mi
+
+=item * header_cfile
+
+=item * body_cfile
+
+=item * footer_cfile
 
 =item * header_build
 

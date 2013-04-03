@@ -4,7 +4,7 @@
       "Kevin Dawson <bowtie@cpan.org>"
    ],
    "dynamic_config" : 0,
-   "generated_by" : "Module::Install version 1.06, CPAN::Meta::Converter version 2.120921",
+   "generated_by" : "ExtUtils::MakeMaker version 6.64, CPAN::Meta::Converter version 2.130880",
    "license" : [
       "perl_5"
    ],
@@ -15,9 +15,8 @@
    "name" : "App-Midgen",
    "no_index" : {
       "directory" : [
-         "inc",
          "t",
-         "xt"
+         "inc"
       ]
    },
    "prereqs" : {
@@ -29,14 +28,10 @@
       },
       "configure" : {
          "requires" : {
-            "ExtUtils::MakeMaker" : "6.59"
+            "ExtUtils::MakeMaker" : "0"
          }
       },
       "runtime" : {
-         "recommends" : {
-            "Test::Pod" : "1.46",
-            "Test::Pod::Coverage" : "1.08"
-         },
          "requires" : {
             "Carp" : "1.26",
             "Cwd" : "3.4",
@@ -45,6 +40,7 @@
             "File::Spec" : "3.4",
             "Getopt::Long" : "2.39",
             "JSON::Tiny" : "0.25",
+            "List::MoreUtils" : "0.33",
             "MetaCPAN::API" : "0.43",
             "Module::CoreList" : "2.85",
             "Moo" : "1.001",
@@ -64,19 +60,5 @@
       }
    },
    "release_status" : "stable",
-   "resources" : {
-      "bugtracker" : {
-         "web" : "https://github.com/kevindawson/App-Midgen/issues"
-      },
-      "homepage" : "https://github.com/kevindawson/App-Midgen",
-      "license" : [
-         "http://dev.perl.org/licenses/"
-      ],
-      "repository" : {
-         "type" : "git",
-         "url" : "git://github.com/kevindawson/App-Midgen.git"
-      }
-   },
-   "version" : "0.18",
-   "x_module_name" : "App::Midgen"
+   "version" : "0.20"
 }
