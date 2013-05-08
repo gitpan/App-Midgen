@@ -2,19 +2,19 @@ package App::Midgen::Output;
 
 use v5.10;
 use Moo;
+# turn of experimental warnings
+no if $] > 5.017010, warnings => 'experimental::smartmatch';
 
 # Load time and dependencies negate execution time
 # use namespace::clean -except => 'meta';
 
-our $VERSION = '0.21';
+our $VERSION = '0.22';
 use English qw( -no_match_vars ); # Avoids reg-ex performance penalty
 local $OUTPUT_AUTOFLUSH = 1;
 
 use Term::ANSIColor qw( :constants colored );
-
-# use Carp;
 use Data::Printer { caller_info => 1, colored => 1, };
-use constant { BLANK => qq{ }, NONE => q{}, THREE => 3, };
+use constant { BLANK => q{ }, NONE => q{}, THREE => 3, };
 use File::Spec;
 
 #######
@@ -44,7 +44,7 @@ sub header_dsl {
 sub body_dsl {
 	my $self         = shift;
 	my $title        = shift;
-	my $required_ref = shift;
+	my $required_ref = shift || return;
 	say 'perl_version ' . $App::Midgen::Min_Version if $title eq 'requires';
 	print "\n";
 
@@ -90,7 +90,7 @@ sub footer_dsl {
 		say 'install_script ...';
 		print "\n";
 	} elsif ( defined -d File::Spec->catdir( $App::Midgen::Working_Dir, 'bin' ) ) {
-		say "install_script bin/...";
+		say 'install_script bin/...';
 		print "\n";
 	}
 
@@ -100,7 +100,7 @@ sub footer_dsl {
 		print "\n";
 	}
 
-	print "\n";
+	#	print "\n";
 
 	return;
 }
@@ -133,7 +133,7 @@ sub header_mi {
 sub body_mi {
 	my $self         = shift;
 	my $title        = shift;
-	my $required_ref = shift;
+	my $required_ref = shift || return;
 
 	my $pm_length = 0;
 	foreach my $module_name ( sort keys %{$required_ref} ) {
@@ -188,10 +188,10 @@ sub footer_mi {
 	}
 
 	if ( defined -d File::Spec->catdir( $App::Midgen::Working_Dir, 'script' ) ) {
-		say "install_script 'script/...';";
+		say 'install_script \'script/...\';';
 		print "\n";
 	} elsif ( defined -d File::Spec->catdir( $App::Midgen::Working_Dir, 'bin' ) ) {
-		say "install_script 'bin/...';";
+		say 'install_script \'bin/...\';';
 		print "\n";
 	}
 
@@ -209,28 +209,28 @@ sub footer_mi {
 
 
 #######
-# header_build
+# header_mb
 #######
-sub header_build {
+sub header_mb {
 	my $self = shift;
 	my $package_name = shift // NONE;
 
 	if ( $package_name ne NONE ) {
 		print "\n";
 		$package_name =~ s{::}{-}g;
-		say '"dist_name" => "' . $package_name.'",';
+		say '"dist_name" => "' . $package_name . q{",};
 		print "\n";
 	}
 
 	return;
 }
 #######
-# body_build
+# body_mb
 #######
-sub body_build {
+sub body_mb {
 	my $self         = shift;
 	my $title        = shift;
-	my $required_ref = shift;
+	my $required_ref = shift || return;
 	print "\n";
 
 	my $pm_length = 0;
@@ -239,7 +239,7 @@ sub body_build {
 			$pm_length = length $module_name;
 		}
 	}
-	say '"'.$title.'"'. ' => {';
+	say q{"} . $title . '" => {';
 
 	foreach my $module_name ( sort keys %{$required_ref} ) {
 
@@ -252,10 +252,22 @@ sub body_build {
 	return;
 }
 #######
-# footer_build
+# footer_mb
 #######
-sub footer_build {
+sub footer_mb {
 	my $self = shift;
+
+	if ( defined -d File::Spec->catdir( $App::Midgen::Working_Dir, 'script' ) ) {
+		print "\n";
+		say '"script_files" => [';
+		print "\t\"script/...\"\n";
+		say '],';
+	} elsif ( defined -d File::Spec->catdir( $App::Midgen::Working_Dir, 'bin' ) ) {
+		print "\n";
+		say '"script_files" => [';
+		print "\t\"bin/...\"\n";
+		say '],';
+	}
 
 	print "\n";
 
@@ -286,7 +298,7 @@ sub header_dzil {
 sub body_dzil {
 	my $self         = shift;
 	my $title        = shift;
-	my $required_ref = shift;
+	my $required_ref = shift || return;
 	print "\n";
 
 	my $pm_length = 0;
@@ -297,8 +309,8 @@ sub body_dzil {
 	}
 
 	given ($title) {
-		when ('requires')      { say "'PREREQ_PM' => {"; }
-		when ('test_requires') { say "'BUILD_REQUIRES' => {"; }
+		when ('requires')      { say '\'PREREQ_PM\' => {'; }
+		when ('test_requires') { say '\'BUILD_REQUIRES\' => {'; }
 		when ('recommends')    { return; }
 	}
 
@@ -322,7 +334,7 @@ sub footer_dzil {
 
 	print BRIGHT_BLACK "\n";
 	say '# ToDo you should consider the following';
-	say "'META_MERGE' => {";
+	say '\'META_MERGE\' => {';
 	say "\t'resources' => {";
 	say "\t\t'homepage' => 'https://github.com/.../$package_name',";
 	say "\t\t'repository' => 'git://github.com/.../$package_name.git',";
@@ -332,7 +344,7 @@ sub footer_dzil {
 	say "\t\t'brian d foy (ADOPTME) <brian.d.foy\@gmail.com>',";
 	say "\t\t'Fred Bloggs <fred\@bloggs.org>',";
 	say "\t],";
-	say "},";
+	say '},';
 	print CLEAR "\n";
 
 	return;
@@ -363,7 +375,7 @@ sub header_dist {
 sub body_dist {
 	my $self         = shift;
 	my $title        = shift;
-	my $required_ref = shift;
+	my $required_ref = shift || return;;
 	print "\n";
 
 	my $pm_length = 0;
@@ -402,7 +414,7 @@ sub footer_dist {
 	my @no_index = $self->no_index;
 	if (@no_index) {
 		say '[MetaNoIndex]';
-		for (@no_index) {
+		foreach (@no_index) {
 			say "directory = $_" if $_ ne 'inc';
 		}
 		print "\n";
@@ -442,24 +454,6 @@ sub footer_dist {
 	return;
 }
 
-#######
-# no_index
-#######
-sub no_index {
-	my $self = shift;
-
-	#ToDo add more options as and when
-	my @dirs_to_check = qw( corpus eg examples fbp inc maint misc privinc share t xt );
-	my @dirs_found;
-
-	for my $dir (@dirs_to_check) {
-
-		#ignore syntax warning for global
-		push @dirs_found, $dir
-			if -d File::Spec->catdir( $App::Midgen::Working_Dir, $dir );
-	}
-	return @dirs_found;
-}
 
 #######
 # header_cpanfile
@@ -476,7 +470,7 @@ sub header_cpanfile {
 
 	$package_name =~ s{::}{-}g;
 	say "name '$package_name';";
-	say "license 'perl';";
+	say 'license \'perl\';';
 
 	$package_name =~ tr{-}{/};
 	say "version_from 'lib/$package_name.pm';";
@@ -484,7 +478,7 @@ sub header_cpanfile {
 	print "\n";
 	say 'cpanfile;';
 	say 'WriteAll;';
-	print CLEAR"\n";
+	print CLEAR "\n";
 
 	return;
 }
@@ -497,12 +491,15 @@ sub body_cpanfile {
 	my $required_ref = shift;
 
 	if ( $title eq 'requires' ) {
-		print BRIGHT_BLACK "\n";
-		say '# cpanfile';
-		print CLEAR;
-		say "requires 'perl', '" . $App::Midgen::Min_Version . "';";
+		print "\n";
+
+		#		print BRIGHT_BLACK "\n";
+		#		say '# cpanfile';
+		#		print CLEAR;
+		say "requires 'perl', '$App::Midgen::Min_Version';";
+		print "\n";
 	}
-	print "\n";
+#	print "\n";
 
 	my $pm_length = 0;
 	foreach my $module_name ( sort keys %{$required_ref} ) {
@@ -510,35 +507,36 @@ sub body_cpanfile {
 			$pm_length = length $module_name;
 		}
 	}
-
-	#p $title;
 	given ($title) {
 		when ('requires') {
 			foreach my $module_name ( sort keys %{$required_ref} ) {
 
 				my $mod_name = "'$module_name',";
-				printf "%s %-*s '%s';\n", $title, $pm_length + 3, $mod_name, $required_ref->{$module_name};
+				printf "%s %-*s '%s';\n", $title, $pm_length + THREE, $mod_name, $required_ref->{$module_name};
 			}
+		}
+		when ('test_requires') {
+			print "\n";
+			say 'on test => sub {';
+			foreach my $module_name ( sort keys %{$required_ref} ) {
+				my $mod_name = "'$module_name',";
+				printf "\t%s %-*s '%s';\n", 'requires', $pm_length + THREE, $mod_name, $required_ref->{$module_name};
+			}
+			print "\n" if %{$required_ref};
 		}
 		when ('recommends') {
 			foreach my $module_name ( sort keys %{$required_ref} ) {
 				my $mod_name = "'$module_name',";
-				printf "%s %-*s '%s';\n", $title, $pm_length + 3, $mod_name, $required_ref->{$module_name};
-			}
-		}
-		when ('test_requires') {
-			say 'on test => sub {';
-			foreach my $module_name ( sort keys %{$required_ref} ) {
-				my $mod_name = "'$module_name',";
-				printf "\t%s %-*s '%s';\n", 'requires', $pm_length + 3, $mod_name, $required_ref->{$module_name};
+				printf "\t%s %-*s '%s';\n", 'suggests', $pm_length + THREE, $mod_name, $required_ref->{$module_name};
 			}
 			say '};';
 		}
 		when ('test_develop') {
+			print "\n";
 			say 'on develop => sub {';
 			foreach my $module_name ( sort keys %{$required_ref} ) {
 				my $mod_name = "'$module_name',";
-				printf "\t%s %-*s '%s';\n", 'requires', $pm_length + 3, $mod_name, $required_ref->{$module_name};
+				printf "\t%s %-*s '%s';\n", 'recommends', $pm_length + THREE, $mod_name, $required_ref->{$module_name};
 			}
 			say '};';
 		}
@@ -555,14 +553,14 @@ sub footer_cpanfile {
 	my $package_name = shift // NONE;
 	$package_name =~ s{::}{-}g;
 
-	print BRIGHT_BLACK "\n";
+	#	print BRIGHT_BLACK "\n";
 
 	#	say '# ToDo you should consider the following';
 	#	say "homepage    https://github.com/.../$package_name";
 	#	say "bugtracker  https://github.com/.../$package_name/issues";
 	#	say "repository  git://github.com/.../$package_name.git";
 
-	print CLEAR "\n";
+	#	print CLEAR "\n";
 
 	#	if ( defined -d File::Spec->catdir( $App::Midgen::Working_Dir, 'share' ) ) {
 	#		say 'install_share';
@@ -588,6 +586,24 @@ sub footer_cpanfile {
 	return;
 }
 
+#######
+# no_index
+#######
+sub no_index {
+	my $self = shift;
+
+	#ToDo add more options as and when
+	my @dirs_to_check = qw( corpus eg examples fbp inc maint misc privinc share t xt );
+	my @dirs_found;
+
+	foreach my $dir (@dirs_to_check) {
+
+		#ignore syntax warning for global
+		push @dirs_found, $dir
+			if -d File::Spec->catdir( $App::Midgen::Working_Dir, $dir );
+	}
+	return @dirs_found;
+}
 
 no Moo;
 
@@ -605,7 +621,7 @@ App::Midgen::Output - A collection of output orientated methods used by L<App::M
 
 =head1 VERSION
 
-This document describes App::Midgen::Output version: 0.21
+This document describes App::Midgen::Output version: 0.22
 
 =head1 DESCRIPTION
 
@@ -634,11 +650,11 @@ The output format uses colour to add visualization of module version number
 
 =item * footer_cpanfile
 
-=item * header_build
+=item * header_mb
 
-=item * body_build
+=item * body_mb
 
-=item * footer_build
+=item * footer_mb
 
 =item * header_dzil
 
