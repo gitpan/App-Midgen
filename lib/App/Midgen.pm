@@ -10,8 +10,8 @@ with qw(
 	App::Midgen::Role::UseOk
 	App::Midgen::Role::ExtraTests
 	App::Midgen::Role::FindMinVersion
+	App::Midgen::Role::Output
 );
-use App::Midgen::Output;
 
 # turn off experimental warnings
 no if $] > 5.017010, warnings => 'experimental::smartmatch';
@@ -19,7 +19,7 @@ no if $] > 5.017010, warnings => 'experimental::smartmatch';
 # Load time and dependencies negate execution time
 # use namespace::clean -except => 'meta';
 
-our $VERSION = '0.23';
+our $VERSION = '0.24';
 use English qw( -no_match_vars ); # Avoids reg-ex performance penalty
 local $OUTPUT_AUTOFLUSH = 1;
 
@@ -54,7 +54,7 @@ sub run {
 	try {
 		$self->first_package_name();
 	};
-	$self->_output_header();
+	$self->output_header();
 
 	$self->find_required_modules();
 	$self->find_required_test_modules();
@@ -73,13 +73,13 @@ sub run {
 	# Now we have switched to MetaCPAN-Api we can hunt for noisy children in test requires
 	$self->remove_noisy_children( $self->{test_requires} ) if $self->experimental;
 
-	$self->_output_main_body( 'requires',      $self->{package_requires} );
-	$self->_output_main_body( 'test_requires', $self->{test_requires} );
-	$self->_output_main_body( 'recommends',    $self->{recommends} );
-	$self->_output_main_body( 'test_develop',  $self->{test_develop} )
+	$self->output_main_body( 'requires',      $self->{package_requires} );
+	$self->output_main_body( 'test_requires', $self->{test_requires} );
+	$self->output_main_body( 'recommends',    $self->{recommends} );
+	$self->output_main_body( 'test_develop',  $self->{test_develop} )
 		if $self->develop;
 
-	$self->_output_footer(); # if not $self->quiet;
+	$self->output_footer(); # if not $self->quiet;
 
 	return;
 }
@@ -815,107 +815,6 @@ sub degree_separation {
 	return $child_score - $parent_score;
 }
 
-#######
-# _output_header
-#######
-sub _output_header {
-	my $self = shift;
-
-	given ( $self->format ) {
-
-		when ('dsl') {
-			$self->output->header_dsl(
-				$self->distribution_name,
-				$self->get_module_version('inc::Module::Install::DSL')
-			);
-		}
-		when ('mi') {
-			$self->output->header_mi(
-				$self->distribution_name,
-				$self->get_module_version('inc::Module::Install')
-			);
-		}
-		when ('dist') {
-			$self->output->header_dist( $self->distribution_name );
-		}
-		when ('cpanfile') {
-			$self->output->header_cpanfile(
-				$self->distribution_name,
-				$self->get_module_version('inc::Module::Install')
-			) if not $self->quiet;
-
-		}
-		when ('dzil') {
-			$self->output->header_dzil( $self->distribution_name );
-		}
-		when ('mb') {
-			$self->output->header_mb( $self->distribution_name );
-		}
-	}
-	return;
-}
-#######
-# _output_main_body
-#######
-sub _output_main_body {
-	my $self         = shift;
-	my $title        = shift || 'title missing';
-	my $required_ref = shift;                   # || return;
-
-	given ( $self->format ) {
-
-		when ('dsl') {
-			$self->output->body_dsl( $title, $required_ref );
-		}
-		when ('mi') {
-			$self->output->body_mi( $title, $required_ref );
-		}
-		when ('dist') {
-			$self->output->body_dist( $title, $required_ref );
-		}
-		when ('cpanfile') {
-			$self->output->body_cpanfile( $title, $required_ref );
-		}
-		when ('dzil') {
-			$self->output->body_dzil( $title, $required_ref );
-		}
-		when ('mb') {
-			$self->output->body_mb( $title, $required_ref );
-		}
-	}
-
-	return;
-}
-#######
-# _output_footer
-#######
-sub _output_footer {
-	my $self = shift;
-
-	given ( $self->format ) {
-
-		when ('dsl') {
-			$self->output->footer_dsl( $self->distribution_name );
-		}
-		when ('mi') {
-			$self->output->footer_mi( $self->distribution_name );
-		}
-		when ('dist') {
-			$self->output->footer_dist( $self->distribution_name );
-		}
-		when ('cpanfile') {
-			$self->output->footer_cpanfile( $self->distribution_name );
-		}
-		when ('dzil') {
-			$self->output->footer_dzil( $self->distribution_name );
-		}
-		when ('mb') {
-			$self->output->footer_mb( $self->distribution_name );
-		}
-	}
-
-	return;
-}
 
 no Moo;
 
@@ -933,7 +832,7 @@ App::Midgen - Check B<requires> & B<test_requires> of your package for CPAN incl
 
 =head1 VERSION
 
-This document describes App::Midgen version: 0.23
+This document describes App::Midgen version: 0.24
 
 =head1 SYNOPSIS
 

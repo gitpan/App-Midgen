@@ -1,4 +1,4 @@
-package App::Midgen::Role::Attributes;
+package App::Midgen::Role::AttributesX;
 
 use v5.10;
 use Moo::Role;
@@ -8,7 +8,7 @@ use Data::Printer { caller_info => 1, colored => 1, };
 # Load time and dependencies negate execution time
 # use namespace::clean -except => 'meta';
 
-our $VERSION = '0.23';
+our $VERSION = '0.24';
 use Carp;
 
 #######
@@ -26,18 +26,6 @@ has 'mcpan' => (
 sub _build_mcpan {
 	my $self = shift;
 	return MetaCPAN::API->new();
-}
-
-has 'output' => (
-	is      => 'rw',
-	isa     => InstanceOf [ 'App::Midgen::Output', ],
-	lazy    => 1,
-	builder => '_build_output',
-);
-
-sub _build_output {
-	my $self = shift;
-	return App::Midgen::Output->new();
 }
 
 has 'scanner' => (
@@ -65,11 +53,11 @@ __END__
 
 =head1 NAME
 
-App::Midgen::Role::Attributes - Package Attributes used by L<App::Midgen>
+App::Midgen::Role::AttributesX - Package Attributes used by L<App::Midgen>
 
 =head1 VERSION
 
-version: 0.23
+version: 0.24
 
 =head1 METHODS
 
@@ -82,10 +70,6 @@ none as such, but we do have
 =item * mcpan
 
 accessor to MetaCPAN::API object
-
-=item * output
-
-accessor to App::Midgen::Output object
 
 =item * scanner
 
