@@ -2,13 +2,13 @@ package App::Midgen::Role::UseOk;
 
 use v5.10;
 use Moo::Role;
-
+use PPI;
 use Data::Printer { caller_info => 1, colored => 1, };
 
 # Load time and dependencies negate execution time
 # use namespace::clean -except => 'meta';
 
-our $VERSION = '0.22';
+our $VERSION = '0.23';
 use constant { BLANK => q{ }, NONE => q{}, TWO => 2, THREE => 3, };
 
 
@@ -143,13 +143,13 @@ for methods in use_ok in BEGIN blocks, used by L<App::Midgen>
 
 =head1 VERSION
 
-version: 0.22
+version: 0.23
 
 =head1 METHODS
 
 =over 4
 
-=item * xtests_use_ok 
+=item * xtests_use_ok
 
 Checking for the following, extracting module name only.
 

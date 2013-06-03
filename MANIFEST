@@ -1,4 +1,3 @@
-.travis.yml
 Changes
 inc/Module/Install.pm
 inc/Module/Install/Base.pm
@@ -12,19 +11,22 @@ inc/Module/Install/Win32.pm
 inc/Module/Install/WriteAll.pm
 lib/App/Midgen.pm
 lib/App/Midgen/Output.pm
+lib/App/Midgen/Role/Attributes.pm
+lib/App/Midgen/Role/AttributesX.pm
 lib/App/Midgen/Role/ExtraTests.pm
+lib/App/Midgen/Role/FindMinVersion.pm
+lib/App/Midgen/Role/Options.pm
 lib/App/Midgen/Role/TestRequires.pm
 lib/App/Midgen/Role/UseOk.pm
-lib/App/Midgen/Roles.pm
+LICENSE
 Makefile.PL
 MANIFEST			This list of files
 META.yml
-MYMETA.json
-MYMETA.yml
 README
-README.md
 script/midgen
+t/00-check-deps.t
 t/01-compile.t
 t/03-pod.t
 t/04-pod-coverage.t
 t/10-midgen.t
+t/99-report-prereqs.t

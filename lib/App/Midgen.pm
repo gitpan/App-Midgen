@@ -3,24 +3,26 @@ package App::Midgen;
 use v5.10;
 use Moo;
 with qw(
-	App::Midgen::Roles
+	App::Midgen::Role::Options
+	App::Midgen::Role::Attributes
+	App::Midgen::Role::AttributesX
 	App::Midgen::Role::TestRequires
 	App::Midgen::Role::UseOk
 	App::Midgen::Role::ExtraTests
+	App::Midgen::Role::FindMinVersion
 );
 use App::Midgen::Output;
 
-# turn of experimental warnings
+# turn off experimental warnings
 no if $] > 5.017010, warnings => 'experimental::smartmatch';
 
 # Load time and dependencies negate execution time
 # use namespace::clean -except => 'meta';
 
-our $VERSION = '0.22';
+our $VERSION = '0.23';
 use English qw( -no_match_vars ); # Avoids reg-ex performance penalty
 local $OUTPUT_AUTOFLUSH = 1;
 
-#use Carp;
 use Cwd qw(cwd);
 use Data::Printer { caller_info => 1, colored => 1, };
 use File::Find qw(find);
@@ -29,7 +31,6 @@ use List::MoreUtils qw(firstidx);
 use MetaCPAN::API;
 use Module::CoreList;
 use PPI;
-use Perl::MinimumVersion;
 use Perl::PrereqScanner;
 use Scalar::Util qw(looks_like_number);
 use Term::ANSIColor qw( :constants colored colorstrip );
@@ -58,7 +59,6 @@ sub run {
 	$self->find_required_modules();
 	$self->find_required_test_modules();
 
-	# ToDo look at doing this with -vv
 	p $self->{modules} if ( $self->verbose == THREE );
 
 	$self->remove_noisy_children( $self->{package_requires} )
@@ -92,8 +92,6 @@ sub _initialise {
 
 	# let's give Output a copy, to stop it being Fup as well suspect Tiny::Path as-well
 	say 'working in dir: ' . $Working_Dir if $self->debug;
-
-	#$self->output = App::Midgen::Output->new();
 
 	return;
 }
@@ -146,7 +144,11 @@ sub _find_package_names {
 	$self->ppi_document( PPI::Document->new($filename) );
 
 	try {
-		$self->min_version();
+		if ( $self->min_ver_fast ) {
+			$self->min_version($filename);
+		} else {
+			$self->min_version() if not $self->min_ver_fast;
+		}
 	};
 
 	# Extract package names
@@ -163,7 +165,6 @@ sub _find_package_names {
 sub find_required_modules {
 	my $self = shift;
 
-	# By default we shell only check lib and script (to bin or not?)
 	my @posiable_directories_to_search = map { File::Spec->catfile( $Working_Dir, $_ ) } qw( script bin lib );
 
 	my @directories_to_search = ();
@@ -236,7 +237,11 @@ sub _find_makefile_requires {
 		default { return if not $self->_is_perlfile($filename); $is_script = 1; }
 	}
 	try {
-		$self->min_version() if $is_script;
+		if ( $self->min_ver_fast ) {
+			$self->min_version($filename);
+		} else {
+			$self->min_version() if $is_script;
+		}
 	};
 
 	my $prereqs = $self->scanner->scan_ppi_document( $self->ppi_document );
@@ -255,7 +260,6 @@ sub _find_makefile_requires {
 			foreach my $include ( @{$ppi_tqs} ) {
 
 				my $module = $include->content;
-				##p $module;
 				$module =~ s/^[']//;
 				$module =~ s/[']$//;
 
@@ -337,10 +341,7 @@ sub _find_makefile_test_requires {
 	p @modules if $self->debug;
 
 	if ( scalar @modules > 0 ) {
-
 		if ( $self->format eq 'cpanfile' ) {
-			# $self->xtest eq 'test_requires' -> t/
-			# $self->xtest eq 'test_develop' -> xt/
 			if ( $self->xtest eq 'test_requires' ) {
 				$self->_process_found_modules( 'test_requires', \@modules );
 			} elsif ( $self->develop && $self->xtest eq 'test_develop' ) {
@@ -350,6 +351,9 @@ sub _find_makefile_test_requires {
 			$self->_process_found_modules( 'test_requires', \@modules );
 		}
 	}
+
+	$self->_xtests_in_single_quote() if $self->experimental;
+	$self->_xtests_in_double_quote() if $self->experimental;
 
 	return;
 }
@@ -389,7 +393,6 @@ sub _process_found_modules {
 			}
 
 			when (/Mojo/sxm) {
-
 				if ( $self->experimental ) {
 					if ( $self->_check_mojo_core( $module, $require_type ) ) {
 						if ( not $self->quiet ) {
@@ -448,7 +451,6 @@ sub _store_modules {
 			$self->{modules}{$module}{version} = $version if $self->core;
 		}
 		default {
-			# if ( $self->_in_corelist($module) ) {
 			if ( $self->{modules}{$module}{corelist} ) {
 				$self->{$require_type}{$module} = colored( $version, 'bright_yellow' )
 					if ( $self->dual_life || $self->core );
@@ -517,10 +519,6 @@ sub remove_noisy_children {
 
 	foreach my $parent_name (@sorted_modules) {
 		my $outer_index = firstidx { $_ eq $parent_name } @sorted_modules;
-
-		# lets just skip these at the moment
-		##next if $parent_name =~ /^Dist::Zilla::Plugin/;
-		##next if $parent_name =~ /^Dist::Zilla::Role/;
 
 		# inc so we don't end up with parent eq child
 		$outer_index++;
@@ -610,7 +608,6 @@ sub remove_twins {
 		}
 
 		# Checking for same patient and score
-		# if ( $dum_parient eq $dee_parient && $dum_score == $dee_score ) {
 		if (   $dum_parient eq $dee_parient
 			&& $self->degree_separation( $dum_name, $dee_name ) == 0 )
 		{
@@ -673,7 +670,7 @@ sub _check_mojo_core {
 	if ( $self->verbose ) {
 		print BRIGHT_BLACK;
 
-		#		say 'looks like we found another mojo core module';
+		#say 'looks like we found another mojo core module';
 		say $mojo_module . ' version ' . $mojo_module_ver;
 		print CLEAR;
 	}
@@ -706,7 +703,7 @@ sub get_module_version {
 		# quick n dirty, get version number if module is classed as a distribution in metacpan
 		my $mod = $self->mcpan->release( distribution => $module );
 
-		#		p $mod;
+		#p $mod;
 		$cpan_version = $mod->{version_numified};
 
 		p $cpan_version if $self->debug;
@@ -816,39 +813,6 @@ sub degree_separation {
 
 	# switch around for a positive number
 	return $child_score - $parent_score;
-}
-
-#######
-# find min perl version
-######
-sub min_version {
-	my $self = shift;
-
-	# Create the version checking object
-	my $object = Perl::MinimumVersion->new( $self->ppi_document );
-
-	# Find the minimum version
-	my $minimum_version = $object->minimum_version;
-	$Min_Version =
-		  version->parse($Min_Version) > version->parse($minimum_version)
-		? version->parse($Min_Version)->numify
-		: version->parse($minimum_version)->numify;
-
-	my $minimum_explicit_version = $object->minimum_explicit_version;
-	$Min_Version =
-		  version->parse($Min_Version) > version->parse($minimum_explicit_version)
-		? version->parse($Min_Version)->numify
-		: version->parse($minimum_explicit_version)->numify;
-
-	my $minimum_syntax_version = $object->minimum_syntax_version;
-	$Min_Version =
-		  version->parse($Min_Version) > version->parse($minimum_syntax_version)
-		? version->parse($Min_Version)->numify
-		: version->parse($minimum_syntax_version)->numify;
-
-	say 'min_version - ' . $Min_Version if $self->debug;
-
-	return;
 }
 
 #######
@@ -969,7 +933,7 @@ App::Midgen - Check B<requires> & B<test_requires> of your package for CPAN incl
 
 =head1 VERSION
 
-This document describes App::Midgen version: 0.22
+This document describes App::Midgen version: 0.23
 
 =head1 SYNOPSIS
 
@@ -1044,11 +1008,6 @@ Assume first package found is your packages name
 
 side affect of re-factoring, helps with code readability
 
-=item * min_version
-
-Uses L<Perl::MinimumVersion> to find the minimum version of your package by taking a quick look,
- I<note this is not a full scan, suggest you use L<perlver> for a full scan>.
-
 =item * mod_in_dist
 
 Check if module is in a distribution and use that version number, rather than 'undef'
@@ -1090,7 +1049,7 @@ As our mantra is to show the current version of a module,
 =head1 BUGS AND LIMITATIONS
 
 There may be some modules on CPAN that when MetaCPAN-API asks for there
- version string, it is provided with the wrong infomation, as the contents
+ version string, it is provided with the wrong information, as the contents
  of there Meta files are out of sync with there current version string.
 
 Please report any bugs or feature requests to

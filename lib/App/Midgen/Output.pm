@@ -2,13 +2,13 @@ package App::Midgen::Output;
 
 use v5.10;
 use Moo;
-# turn of experimental warnings
+# turn off experimental warnings
 no if $] > 5.017010, warnings => 'experimental::smartmatch';
 
 # Load time and dependencies negate execution time
 # use namespace::clean -except => 'meta';
 
-our $VERSION = '0.22';
+our $VERSION = '0.23';
 use English qw( -no_match_vars ); # Avoids reg-ex performance penalty
 local $OUTPUT_AUTOFLUSH = 1;
 
@@ -553,34 +553,6 @@ sub footer_cpanfile {
 	my $package_name = shift // NONE;
 	$package_name =~ s{::}{-}g;
 
-	#	print BRIGHT_BLACK "\n";
-
-	#	say '# ToDo you should consider the following';
-	#	say "homepage    https://github.com/.../$package_name";
-	#	say "bugtracker  https://github.com/.../$package_name/issues";
-	#	say "repository  git://github.com/.../$package_name.git";
-
-	#	print CLEAR "\n";
-
-	#	if ( defined -d File::Spec->catdir( $App::Midgen::Working_Dir, 'share' ) ) {
-	#		say 'install_share';
-	#		print "\n";
-	#	}
-
-	#	if ( defined -d File::Spec->catdir( $App::Midgen::Working_Dir, 'script' ) ) {
-	#		say 'install_script ...';
-	#		print "\n";
-	#	} elsif ( defined -d File::Spec->catdir( $App::Midgen::Working_Dir, 'bin' ) ) {
-	#		say "install_script bin/...";
-	#		print "\n";
-	#	}
-
-	#	my @no_index = $self->no_index;
-	#	if (@no_index) {
-	#		say "no_index directory qw{ @no_index }";
-	#		print "\n";
-	#	}
-
 	print "\n";
 
 	return;
@@ -621,7 +593,7 @@ App::Midgen::Output - A collection of output orientated methods used by L<App::M
 
 =head1 VERSION
 
-This document describes App::Midgen::Output version: 0.22
+This document describes App::Midgen::Output version: 0.23
 
 =head1 DESCRIPTION
 

@@ -3,12 +3,13 @@ package App::Midgen::Role::TestRequires;
 use v5.10;
 use Moo::Role;
 
+use PPI;
 use Data::Printer { caller_info => 1, colored => 1, };
 
 # Load time and dependencies negate execution time
 # use namespace::clean -except => 'meta';
 
-our $VERSION = '0.22';
+our $VERSION = '0.23';
 use constant { BLANK => q{ }, NONE => q{}, TWO => 2, THREE => 3, };
 
 
@@ -153,7 +154,7 @@ sub xtests_test_requires {
 
 			if ( $self->xtest eq 'test_requires' ) {
 				$self->_process_found_modules( 'recommends', \@modules );
-			} 
+			}
 			elsif ( $self->develop && $self->xtest eq 'test_develop' ) {
 				$self->_process_found_modules( 'test_develop', \@modules );
 			}
@@ -181,7 +182,7 @@ for methods in use L<Test::Requires> blocks, used by L<App::Midgen>
 
 =head1 VERSION
 
-version: 0.22
+version: 0.23
 
 =head1 METHODS
 
