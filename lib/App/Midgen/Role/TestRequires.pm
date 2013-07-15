@@ -2,6 +2,7 @@ package App::Midgen::Role::TestRequires;
 
 use v5.10;
 use Moo::Role;
+requires qw( ppi_document develop debug format xtest _process_found_modules );
 
 use PPI;
 use Data::Printer { caller_info => 1, colored => 1, };
@@ -9,7 +10,7 @@ use Data::Printer { caller_info => 1, colored => 1, };
 # Load time and dependencies negate execution time
 # use namespace::clean -except => 'meta';
 
-our $VERSION = '0.24';
+our $VERSION = '0.25_05';
 use constant { BLANK => q{ }, NONE => q{}, TWO => 2, THREE => 3, };
 
 
@@ -86,7 +87,7 @@ sub xtests_test_requires {
 									$module =~ s/^['|"]//;
 									$module =~ s/['|"]$//;
 									if ( $module =~ m/\A[A-Z]/ ) {
-										say 'found module - ' . $module if $self->debug;
+										warn 'found module - ' . $module if $self->debug;
 										push @modules, $module;
 									}
 
@@ -148,7 +149,7 @@ sub xtests_test_requires {
 	# if we found a module, process it with the correct catogery
 	if ( scalar @modules > 0 ) {
 
-		if ( $self->format eq 'cpanfile' ) {
+		if ( $self->format =~ /cpanfile|metajson/ ) {
 			# $self->xtest eq 'test_requires' -> t/
 			# $self->xtest eq 'test_develop' -> xt/
 
@@ -182,7 +183,7 @@ for methods in use L<Test::Requires> blocks, used by L<App::Midgen>
 
 =head1 VERSION
 
-version: 0.24
+version: 0.25_05
 
 =head1 METHODS
 

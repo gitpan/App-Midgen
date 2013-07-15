@@ -9,7 +9,10 @@ with qw(
 	App::Midgen::Role::Output::Dzil
 	App::Midgen::Role::Output::Dist
 	App::Midgen::Role::Output::CPANfile
+	App::Midgen::Role::Output::METAjson
+	App::Midgen::Role::Output::Infile
 );
+requires qw( format distribution_name get_module_version verbose );
 
 # turn off experimental warnings
 no if $] > 5.017010, warnings => 'experimental::smartmatch';
@@ -17,7 +20,7 @@ no if $] > 5.017010, warnings => 'experimental::smartmatch';
 # Load time and dependencies negate execution time
 # use namespace::clean -except => 'meta';
 
-our $VERSION = '0.24';
+our $VERSION = '0.25_05';
 use English qw( -no_match_vars ); # Avoids reg-ex performance penalty
 local $OUTPUT_AUTOFLUSH = 1;
 
@@ -57,6 +60,12 @@ sub output_header {
 		when ('mb') {
 			$self->header_mb( $self->distribution_name );
 		}
+		when ('metajson') {
+			$self->header_metajson( $self->distribution_name );
+		}
+		when ('infile') {
+			$self->header_infile( $self->distribution_name );
+		}
 	}
 	return;
 }
@@ -89,6 +98,12 @@ sub output_main_body {
 		when ('mb') {
 			$self->body_mb( $title, $required_ref );
 		}
+		when ('metajson') {
+			$self->body_metajson( $title, $required_ref );
+		}
+		when ('infile') {
+			$self->body_infile( $title, $required_ref );
+		}
 	}
 
 	return;
@@ -119,6 +134,12 @@ sub output_footer {
 		}
 		when ('mb') {
 			$self->footer_mb( $self->distribution_name );
+		}
+		when ('metajson') {
+			$self->footer_metajson( $self->distribution_name );
+		}
+		when ('infile') {
+			$self->footer_infile( $self->distribution_name );
 		}
 	}
 
@@ -161,7 +182,7 @@ App::Midgen::Role::Output - A collection of output orientated methods used by L<
 
 =head1 VERSION
 
-version: 0.24
+version: 0.25_05
 
 =head1 DESCRIPTION
 

@@ -2,6 +2,7 @@ package App::Midgen::Role::Output::CPANfile;
 
 use v5.10;
 use Moo::Role;
+requires qw( verbose );
 
 # turn off experimental warnings
 no if $] > 5.017010, warnings => 'experimental::smartmatch';
@@ -9,7 +10,7 @@ no if $] > 5.017010, warnings => 'experimental::smartmatch';
 # Load time and dependencies negate execution time
 # use namespace::clean -except => 'meta';
 
-our $VERSION = '0.24';
+our $VERSION = '0.25_05';
 use English qw( -no_match_vars ); # Avoids reg-ex performance penalty
 local $OUTPUT_AUTOFLUSH = 1;
 
@@ -26,22 +27,23 @@ sub header_cpanfile {
 	my $package_name = shift // NONE;
 	my $mi_ver       = shift // NONE;
 
-	#	$package_name =~ s{::}{-}g;
-	print BRIGHT_BLACK "\n";
-	say '# Makefile.PL';
-	say 'use inc::Module::Install ' . $mi_ver . q{;};
+	if ( $self->verbose > 0 ) {
+		print BRIGHT_BLACK "\n";
+		say '# Makefile.PL';
+		say 'use inc::Module::Install ' . $mi_ver . q{;};
 
-	$package_name =~ s{::}{-}g;
-	say "name '$package_name';";
-	say 'license \'perl\';';
+		$package_name =~ s{::}{-}g;
+		say "name '$package_name';";
+		say 'license \'perl\';';
 
-	$package_name =~ tr{-}{/};
-	say "version_from 'lib/$package_name.pm';";
+		$package_name =~ tr{-}{/};
+		say "version_from 'lib/$package_name.pm';";
 
-	print "\n";
-	say 'cpanfile;';
-	say 'WriteAll;';
-	print CLEAR "\n";
+		print "\n";
+		say 'cpanfile;';
+		say 'WriteAll;';
+		print CLEAR "\n";
+	}
 
 	return;
 }
@@ -63,7 +65,8 @@ sub body_cpanfile {
 		say "requires 'perl', '$App::Midgen::Min_Version';";
 		print "\n";
 	}
-#	print "\n";
+
+	#	print "\n";
 
 	my $pm_length = 0;
 	foreach my $module_name ( sort keys %{$required_ref} ) {
@@ -140,7 +143,7 @@ App::Midgen::Role::Output::CPANfile - A collection of output orientated methods 
 
 =head1 VERSION
 
-version: 0.24
+version: 0.25_05
 
 =head1 DESCRIPTION
 

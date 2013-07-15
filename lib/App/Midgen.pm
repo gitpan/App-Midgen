@@ -19,7 +19,7 @@ no if $] > 5.017010, warnings => 'experimental::smartmatch';
 # Load time and dependencies negate execution time
 # use namespace::clean -except => 'meta';
 
-our $VERSION = '0.24';
+our $VERSION = '0.25_05';
 use English qw( -no_match_vars ); # Avoids reg-ex performance penalty
 local $OUTPUT_AUTOFLUSH = 1;
 
@@ -71,7 +71,19 @@ sub run {
 		if $self->found_twins;
 
 	# Now we have switched to MetaCPAN-Api we can hunt for noisy children in test requires
-	$self->remove_noisy_children( $self->{test_requires} ) if $self->experimental;
+	if ( $self->experimental ) {
+		p $self->{test_requires} if $self->debug;
+		$self->remove_noisy_children( $self->{test_requires} );
+		foreach my $module ( keys %{ $self->{test_requires} } ) {
+			if ( $self->{package_requires}{$module} ) {
+				warn $module if $self->debug;
+				try {
+					delete $self->{test_requires}{$module};
+				};
+			}
+		}
+		p $self->{test_requires} if $self->debug;
+	}
 
 	$self->output_main_body( 'requires',      $self->{package_requires} );
 	$self->output_main_body( 'test_requires', $self->{test_requires} );
@@ -79,7 +91,7 @@ sub run {
 	$self->output_main_body( 'test_develop',  $self->{test_develop} )
 		if $self->develop;
 
-	$self->output_footer(); # if not $self->quiet;
+	$self->output_footer();
 
 	return;
 }
@@ -91,7 +103,7 @@ sub _initialise {
 	my $self = shift;
 
 	# let's give Output a copy, to stop it being Fup as well suspect Tiny::Path as-well
-	say 'working in dir: ' . $Working_Dir if $self->debug;
+	warn 'working in dir: ' . $Working_Dir if $self->debug;
 
 	return;
 }
@@ -117,12 +129,13 @@ sub first_package_name {
 		my $mcpan_module_info = $self->mcpan->module( $self->package_names->[0] );
 		my $distribution_name = $mcpan_module_info->{distribution};
 		$distribution_name =~ s{-}{::}g;
-		$self->distribution_name($distribution_name);
+		$self->_set_distribution_name($distribution_name);
 	}
 	catch {
-		$self->distribution_name( $self->package_names->[0] );
+		$self->_set_distribution_name( $self->package_names->[0] );
 	};
-	say 'Package: ' . $self->distribution_name if $self->verbose;
+	# I still want to see package name even though infile sets verbose = 0
+	say 'Package: ' . $self->distribution_name if $self->verbose or $self->format eq 'infile';
 
 	return;
 }
@@ -141,13 +154,17 @@ sub _find_package_names {
 	return if $filename !~ /[.]pm$/sxm;
 
 	# Load a Document from a file
-	$self->ppi_document( PPI::Document->new($filename) );
+	$self->_set_ppi_document( PPI::Document->new($filename) );
 
 	try {
 		if ( $self->min_ver_fast ) {
+
+			# say 'running fast';
 			$self->min_version($filename);
 		} else {
-			$self->min_version() if not $self->min_ver_fast;
+
+			# say 'running slow';
+			$self->min_version(); # if not $self->min_ver_fast;
 		}
 	};
 
@@ -222,12 +239,15 @@ sub find_required_test_modules {
 sub _find_makefile_requires {
 	my $self     = shift;
 	my $filename = $_;
-	$self->ppi_document( PPI::Document->new($filename) );
 	my $is_script = 0;
 
 	given ($filename) {
 		when (m/[.]pm$/) {
 			say 'looking for requires in (.pm)-> ' . $filename
+				if $self->verbose >= TWO;
+		}
+		when (m/[.]psgi$/) {
+			say 'looking for requires in (.psgi)-> ' . $filename
 				if $self->verbose >= TWO;
 		}
 		when (m/[.]\w{2,4}$/) {
@@ -244,8 +264,17 @@ sub _find_makefile_requires {
 		}
 	};
 
+	my $relative_dir = $File::Find::dir;
+	$relative_dir =~ s/$Working_Dir//;
+	$self->_set_looking_infile( File::Spec->catfile( $relative_dir, $filename ) );
+
+	$self->_set_ppi_document( PPI::Document->new($filename) );
 	my $prereqs = $self->scanner->scan_ppi_document( $self->ppi_document );
 	my @modules = $prereqs->required_modules;
+
+foreach my $mod_ver ( @modules ){
+	$self->{found_version}{$mod_ver} = $prereqs->requirements_for_module($mod_ver);
+}
 
 	$self->{skip_not_mcpan_stamp} = 0;
 
@@ -283,18 +312,18 @@ sub _is_perlfile {
 	my $self     = shift;
 	my $filename = shift;
 
-	$self->ppi_document( PPI::Document->new($filename) );
+	$self->_set_ppi_document( PPI::Document->new($filename) );
 	my $ppi_tc = $self->ppi_document->find('PPI::Token::Comment');
 
-	my $not_a_pl_file = 0;
+	my $a_pl_file = 0;
 
 	if ($ppi_tc) {
 
 		# check first token-comment for a she-bang
-		$not_a_pl_file = 1 if $ppi_tc->[0]->content =~ m/^#!.+perl.*$/;
+		$a_pl_file = 1 if $ppi_tc->[0]->content =~ m/^#!.+perl.*$/;
 	}
 
-	if ( $self->ppi_document->find('PPI::Statement::Package') || $not_a_pl_file ) {
+	if ( $self->ppi_document->find('PPI::Statement::Package') || $a_pl_file ) {
 		if ( $self->verbose >= TWO ) {
 
 			print "looking for requires in (package) -> "
@@ -319,15 +348,18 @@ sub _find_makefile_test_requires {
 	my $directorie = shift;
 	##p $directorie;
 	my $prerequisites = ( $directorie =~ m/xt$/ ) ? 'test_develop' : 'test_requires';
-	$self->xtest('test_develop') if $directorie =~ m/xt$/;
+	$self->_set_xtest('test_develop') if $directorie =~ m/xt$/;
 
 	my $filename = $_;
 	return if $filename !~ /[.]t|pm$/sxm;
 
 	say 'looking for test_requires in: ' . $filename if $self->verbose >= TWO;
 
+	my $relative_dir = $File::Find::dir;
+	$relative_dir =~ s/$Working_Dir//;	
+	$self->_set_looking_infile( File::Spec->catfile( $relative_dir, $filename ) );
 	# Load a Document from a file and check use and require contents
-	$self->ppi_document( PPI::Document->new($filename) );
+	$self->_set_ppi_document( PPI::Document->new($filename) );
 
 	# do extra test early check for Test::Requires before hand
 	$self->xtests_test_requires();
@@ -340,8 +372,12 @@ sub _find_makefile_test_requires {
 
 	p @modules if $self->debug;
 
+foreach my $mod_ver ( @modules ){
+	$self->{found_version}{$mod_ver} = $prereqs->requirements_for_module($mod_ver);
+}
+
 	if ( scalar @modules > 0 ) {
-		if ( $self->format eq 'cpanfile' ) {
+		if ( $self->format =~ /cpanfile|metajson/ ) {
 			if ( $self->xtest eq 'test_requires' ) {
 				$self->_process_found_modules( 'test_requires', \@modules );
 			} elsif ( $self->develop && $self->xtest eq 'test_develop' ) {
@@ -413,6 +449,7 @@ sub _process_found_modules {
 
 		# lets keep track of how many times a module include is found
 		$self->{modules}{$module}{count} += 1;
+		push @{ $self->{modules}{$module}{infiles} }, [ $self->looking_infile(), $self->{found_version}{$module} // 0 ];
 
 		# don't process already found modules
 		p $self->{modules}{$module}{location} if $self->debug;
@@ -445,13 +482,15 @@ sub _store_modules {
 			$self->{modules}{$module}{location} = $require_type;
 			$self->{modules}{$module}{version}  = '!mcpan';
 		}
-		when ( 0 || 'core' ) {
+		when ('core') {
 			$self->{$require_type}{$module} = $version if $self->core;
+			$self->{$require_type}{$module} = '0'      if $self->zero;
 			$self->{modules}{$module}{location} = $require_type;
 			$self->{modules}{$module}{version} = $version if $self->core;
 		}
 		default {
 			if ( $self->{modules}{$module}{corelist} ) {
+
 				$self->{$require_type}{$module} = colored( $version, 'bright_yellow' )
 					if ( $self->dual_life || $self->core );
 				$self->{modules}{$module}{location} = $require_type
@@ -459,6 +498,12 @@ sub _store_modules {
 				$self->{modules}{$module}{version} = $version
 					if ( $self->dual_life || $self->core );
 				$self->{modules}{$module}{dual_life} = 1;
+
+
+#				$self->{$require_type}{$module} = colored( $version, 'bright_yellow' );
+#				$self->{modules}{$module}{version}   = $version;
+#				$self->{modules}{$module}{location}  = $require_type;
+#				$self->{modules}{$module}{dual_life} = 1;
 			} else {
 				$self->{$require_type}{$module} = colored( $version, 'yellow' );
 				$self->{$require_type}{$module} = colored( version->parse($version)->numify, 'yellow' )
@@ -622,7 +667,6 @@ sub remove_twins {
 						print $dum_name . ' => ' . $required_ref->{ $sorted_modules[ $n - 1 ] };
 						print BRIGHT_BLACK ' <-twins-> ' . $dee_name . ' => ' . $required_ref->{ $sorted_modules[$n] };
 						print CLEAR "\n";
-
 					}
 				}
 
@@ -638,7 +682,7 @@ sub remove_twins {
 						say $dum_parient . ' -> ' . $version . ' is the parent of these twins'
 							if $self->verbose;
 						$required_ref->{$dum_parient} = $version;
-						$self->found_twins(1);
+						$self->_set_found_twins(1);
 					}
 				}
 			}
@@ -718,12 +762,8 @@ sub get_module_version {
 
 			# mark all perl core modules with either 'core' or '0'
 			if ( $dist eq 'perl' ) {
-				if ( $self->zero ) {
-					$cpan_version = 0;
-				} else {
-					$cpan_version = 'core';
-				}
-				$found = 1;
+				$cpan_version = 'core';
+				$found        = 1;
 			}
 		};
 		if ( $found == 0 ) {
@@ -734,14 +774,10 @@ sub get_module_version {
 				$cpan_version                           = $mod->{version_numified};
 				$found                                  = 1;
 				$self->{modules}{$module}{distribution} = $dist;
-
-				#				if ( $self->experimental ) {
 				$self->mod_in_dist(
 					$dist, $module, $require_type,
 					$mod->{version_numified}
 				) if $require_type;
-
-				#				}
 			}
 		}
 	}
@@ -756,7 +792,7 @@ sub get_module_version {
 		# a bit of de crappy-flying
 		# catch Test::Kwalitee::Extra 6e-06
 		print BRIGHT_BLACK;
-		say $module . ' Unique Release Sequence Indicator ' . $cpan_version
+		say $module . ' Unique Release Sequence Indicator NOT! -> ' . $cpan_version
 			if $self->verbose >= 1;
 		print CLEAR;
 		$cpan_version = version->parse($cpan_version)->numify;
@@ -808,8 +844,8 @@ sub degree_separation {
 	# Use of implicit split to @_ is deprecated
 	my $parent_score = @{ [ split /::/, $parent ] };
 	my $child_score  = @{ [ split /::/, $child ] };
-	say 'parent - ' . $parent . ' score - ' . $parent_score if $self->debug;
-	say 'child - ' . $child . ' score - ' . $child_score    if $self->debug;
+	warn 'parent - ' . $parent . ' score - ' . $parent_score if $self->debug;
+	warn 'child - ' . $child . ' score - ' . $child_score    if $self->debug;
 
 	# switch around for a positive number
 	return $child_score - $parent_score;
@@ -832,7 +868,7 @@ App::Midgen - Check B<requires> & B<test_requires> of your package for CPAN incl
 
 =head1 VERSION
 
-This document describes App::Midgen version: 0.24
+This document describes App::Midgen version: 0.25_05
 
 =head1 SYNOPSIS
 
@@ -928,6 +964,7 @@ Twins E::F::G and E::F::H  have a parent E::F with same version number,
 =head1 CONFIGURATION AND ENVIRONMENT
 
 App::Midgen requires no configuration files or environment variables.
+We do honour $ENV{ANSI_COLORS_DISABLED}
 
 =head1 DEPENDENCIES
 

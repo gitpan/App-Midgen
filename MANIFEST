@@ -19,7 +19,9 @@ lib/App/Midgen/Role/Output.pm
 lib/App/Midgen/Role/Output/CPANfile.pm
 lib/App/Midgen/Role/Output/Dist.pm
 lib/App/Midgen/Role/Output/Dzil.pm
+lib/App/Midgen/Role/Output/Infile.pm
 lib/App/Midgen/Role/Output/MB.pm
+lib/App/Midgen/Role/Output/METAjson.pm
 lib/App/Midgen/Role/Output/MI.pm
 lib/App/Midgen/Role/Output/MIdsl.pm
 lib/App/Midgen/Role/TestRequires.pm
@@ -35,4 +37,7 @@ t/01-compile.t
 t/03-pod.t
 t/04-pod-coverage.t
 t/10-midgen.t
+t/11-can_cc_0.t
+t/11-can_cc_1.t
+t/11-can_cc_2.t
 t/99-report-prereqs.t

@@ -3,8 +3,9 @@ package App::Midgen::Role::FindMinVersion;
 use v5.10;
 use Types::Standard qw( Bool );
 use Moo::Role;
+requires qw( ppi_document debug );
 
-our $VERSION = '0.24';
+our $VERSION = '0.25_05';
 use English qw( -no_match_vars );
 use version;
 use constant { TRUE => 1, FALSE => 0, };
@@ -21,9 +22,9 @@ sub _build_min_ver_fast {
 	eval("use Perl::MinimumVersion::Fast");
 	if ($EVAL_ERROR) {
 		use Perl::MinimumVersion;
-		return TRUE;
-	} else {
 		return FALSE;
+	} else {
+		return TRUE;
 	}
 }
 
@@ -64,7 +65,7 @@ sub min_version {
 		? version->parse($dist_min_ver)->numify
 		: version->parse($minimum_syntax_version)->numify;
 
-	say 'min_version - ' . $dist_min_ver if $self->debug;
+	warn 'min_version - ' . $dist_min_ver if $self->debug;
 	$App::Midgen::Min_Version = $dist_min_ver;
 	return;
 }
@@ -85,7 +86,7 @@ App::Midgen::Roles::FindMinVersion - used by L<App::Midgen>
 
 =head1 VERSION
 
-version: 0.24
+version: 0.25_05
 
 =head1 METHODS
 
