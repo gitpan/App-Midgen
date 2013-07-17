@@ -12,7 +12,7 @@ inc/Module/Install/WriteAll.pm
 lib/App/Midgen.pm
 lib/App/Midgen/Role/Attributes.pm
 lib/App/Midgen/Role/AttributesX.pm
-lib/App/Midgen/Role/ExtraTests.pm
+lib/App/Midgen/Role/Eval.pm
 lib/App/Midgen/Role/FindMinVersion.pm
 lib/App/Midgen/Role/Options.pm
 lib/App/Midgen/Role/Output.pm

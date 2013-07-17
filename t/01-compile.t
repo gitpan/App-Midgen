@@ -6,7 +6,7 @@ use warnings FATAL => 'all';
 use English qw( -no_match_vars );    # Avoids regex performance penalty
 local $OUTPUT_AUTOFLUSH = 1;
 
-use Test::More tests => 40;
+use Test::More tests => 42;
 
 BEGIN {
   use_ok('App::Midgen');
@@ -15,7 +15,7 @@ BEGIN {
   use_ok('App::Midgen::Role::AttributesX');
   use_ok('App::Midgen::Role::TestRequires');
   use_ok('App::Midgen::Role::UseOk');
-  use_ok('App::Midgen::Role::ExtraTests');
+  use_ok('App::Midgen::Role::Eval');
   use_ok('App::Midgen::Role::FindMinVersion');
   use_ok('App::Midgen::Role::Output');
   use_ok('App::Midgen::Role::Output::MIdsl');
@@ -24,6 +24,8 @@ BEGIN {
   use_ok('App::Midgen::Role::Output::Dzil');
   use_ok('App::Midgen::Role::Output::Dist');
   use_ok('App::Midgen::Role::Output::CPANfile');
+  use_ok('App::Midgen::Role::Output::METAjson');
+  use_ok('App::Midgen::Role::Output::Infile');
 
   use_ok('Carp',                 '1.26');
   use_ok('Cwd',                  '3.4');
@@ -35,7 +37,7 @@ BEGIN {
   use_ok('List::MoreUtils',      '0.33');
   use_ok('MetaCPAN::API',        '0.43');
   use_ok('Module::CoreList',     '2.92');
-  use_ok('Moo',                  '1.002');
+  use_ok('Moo',                  '1.003');
   use_ok('PPI',                  '1.215');
   use_ok('Perl::MinimumVersion', '1.32');
   use_ok('Perl::PrereqScanner',  '1.016');
@@ -44,7 +46,7 @@ BEGIN {
   use_ok('Term::ANSIColor',      '4.02');
   use_ok('Time::Stamp',          '1.3');
   use_ok('Try::Tiny',            '0.16');
-  use_ok('Type::Tiny',           '0.014');
+  use_ok('Type::Tiny',           '0.016');
   use_ok('constant',             '1.27');
 #  use_ok('lib',                  '0.63');
   use_ok('version',              '0.9902');
