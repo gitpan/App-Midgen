@@ -10,7 +10,7 @@ use Data::Printer { caller_info => 1, colored => 1, };
 # Load time and dependencies negate execution time
 # use namespace::clean -except => 'meta';
 
-our $VERSION = '0.25_07';
+our $VERSION = '0.25_08';
 use constant { BLANK => q{ }, NONE => q{}, TWO => 2, THREE => 3, };
 
 
@@ -47,7 +47,7 @@ sub xtests_test_requires {
 		grep { $_->child(0)->literal =~ m{\A(?:use)\z} }
 		grep { $_->child(0)->isa('PPI::Token::Word') } @{ $self->ppi_document->find('PPI::Statement::Include') || [] };
 
-	#  p @chunks;
+# p @chunks;
 
 	# 0    PPI::Token::Word  	'use'
 	# 1    PPI::Token::Word  	'Test::Requires'
@@ -180,7 +180,7 @@ for methods in use L<Test::Requires> blocks, used by L<App::Midgen>
 
 =head1 VERSION
 
-version: 0.25_07
+version: 0.25_08
 
 =head1 METHODS
 
