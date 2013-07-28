@@ -7,7 +7,7 @@ use Moo::Role;
 # Load time and dependencies negate execution time
 # use namespace::clean -except => 'meta';
 
-our $VERSION = '0.25_09';
+our $VERSION = '0.26';
 use Carp;
 
 #######
@@ -88,7 +88,7 @@ around [qw( debug verbose )] => sub {
 	my $self    = shift;
 	my $content = $self->$orig(@_);
 
-	if (   ( $self->quiet == 1 && $self->experimental == 1 ) 
+	if (   ( $self->quiet == 1 && $self->experimental == 1 )
 		|| ( $self->format eq 'infile' ) )
 	{
 		return 0;
@@ -114,7 +114,7 @@ App::Midgen::Role::Options - Package Options used by L<App::Midgen>
 
 =head1 VERSION
 
-version: 0.25_09
+version: 0.26
 
 =head1 METHODS
 
