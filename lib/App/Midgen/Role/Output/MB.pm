@@ -9,7 +9,7 @@ no if $] > 5.017010, warnings => 'experimental::smartmatch';
 # Load time and dependencies negate execution time
 # use namespace::clean -except => 'meta';
 
-our $VERSION = '0.26';
+our $VERSION = '0.27_05';
 use English qw( -no_match_vars ); # Avoids reg-ex performance penalty
 local $OUTPUT_AUTOFLUSH = 1;
 
@@ -101,7 +101,7 @@ used by L<App::Midgen>
 
 =head1 VERSION
 
-version: 0.26
+version: 0.27_05
 
 =head1 DESCRIPTION
 
@@ -142,7 +142,8 @@ See L<App::Midgen>
 
 =head1 LICENSE
 
-See L<App::Midgen>
+This library is free software; you can redistribute it and/or modify
+it under the same terms as Perl itself.
 
 =cut
 

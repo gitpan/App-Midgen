@@ -10,7 +10,7 @@ no if $] > 5.017010, warnings => 'experimental::smartmatch';
 # Load time and dependencies negate execution time
 # use namespace::clean -except => 'meta';
 
-our $VERSION = '0.26';
+our $VERSION = '0.27_05';
 use English qw( -no_match_vars ); # Avoids reg-ex performance penalty
 local $OUTPUT_AUTOFLUSH = 1;
 
@@ -27,23 +27,23 @@ sub header_cpanfile {
 	my $package_name = shift // NONE;
 	my $mi_ver       = shift // NONE;
 
-	if ( $self->verbose > 0 ) {
-		print BRIGHT_BLACK "\n";
-		say '# Makefile.PL';
-		say 'use inc::Module::Install ' . $mi_ver . q{;};
-
-		$package_name =~ s{::}{-}g;
-		say "name '$package_name';";
-		say 'license \'perl\';';
-
-		$package_name =~ tr{-}{/};
-		say "version_from 'lib/$package_name.pm';";
-
-		print "\n";
-		say 'cpanfile;';
-		say 'WriteAll;';
-		print CLEAR "\n";
-	}
+#	if ( $self->verbose > 0 ) {
+#		print BRIGHT_BLACK "\n";
+#		say '# Makefile.PL';
+#		say 'use inc::Module::Install ' . $mi_ver . q{;};
+#
+#		$package_name =~ s{::}{-}g;
+#		say "name '$package_name';";
+#		say 'license \'perl\';';
+#
+#		$package_name =~ tr{-}{/};
+#		say "version_from 'lib/$package_name.pm';";
+#
+#		print "\n";
+#		say 'cpanfile;';
+#		say 'WriteAll;';
+#		print CLEAR "\n";
+#	}
 
 	return;
 }
@@ -59,14 +59,13 @@ sub body_cpanfile {
 	if ( $title eq 'requires' ) {
 		print "\n";
 
-		#		print BRIGHT_BLACK "\n";
-		#		say '# cpanfile';
-		#		print CLEAR;
+		print BRIGHT_BLACK "\n";
+		say '# cpanfile';
+		print CLEAR "\n";
+
 		say "requires 'perl', '$App::Midgen::Min_Version';";
 		print "\n";
 	}
-
-	#	print "\n";
 
 	my $pm_length = 0;
 	foreach my $module_name ( sort keys %{$required_ref} ) {
@@ -144,7 +143,7 @@ used by L<App::Midgen>
 
 =head1 VERSION
 
-version: 0.26
+version: 0.27_05
 
 =head1 DESCRIPTION
 
@@ -185,7 +184,8 @@ See L<App::Midgen>
 
 =head1 LICENSE
 
-See L<App::Midgen>
+This library is free software; you can redistribute it and/or modify
+it under the same terms as Perl itself.
 
 =cut
 

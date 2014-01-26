@@ -25,6 +25,7 @@ lib/App/Midgen/Role/Output/METAjson.pm
 lib/App/Midgen/Role/Output/MI.pm
 lib/App/Midgen/Role/Output/MIdsl.pm
 lib/App/Midgen/Role/TestRequires.pm
+lib/App/Midgen/Role/UseModule.pm
 lib/App/Midgen/Role/UseOk.pm
 LICENSE
 Makefile.PL
@@ -36,8 +37,10 @@ t/00-check-deps.t
 t/01-compile.t
 t/03-pod.t
 t/04-pod-coverage.t
+t/05-script.t
 t/10-midgen.t
 t/11-can_xs_0.t
 t/11-can_xs_1.t
 t/11-can_xs_2.t
 t/99-report-prereqs.t
+t/testfile

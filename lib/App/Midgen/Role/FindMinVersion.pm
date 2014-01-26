@@ -5,7 +5,7 @@ use Types::Standard qw( Bool );
 use Moo::Role;
 requires qw( ppi_document debug );
 
-our $VERSION = '0.26';
+our $VERSION = '0.27_05';
 use English qw( -no_match_vars );
 use version;
 use constant {TRUE => 1, FALSE => 0,};
@@ -89,7 +89,7 @@ App::Midgen::Roles::FindMinVersion - used by L<App::Midgen>
 
 =head1 VERSION
 
-version: 0.26
+version: 0.27_05
 
 =head1 METHODS
 
@@ -129,7 +129,8 @@ See L<App::Midgen>
 
 =head1 LICENSE
 
-See L<App::Midgen>
+This library is free software; you can redistribute it and/or modify
+it under the same terms as Perl itself.
 
 =cut
 
