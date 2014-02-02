@@ -8,7 +8,7 @@ use Moo::Role;
 # Load time and dependencies negate execution time
 # use namespace::clean -except => 'meta';
 
-our $VERSION = '0.27_05';
+our $VERSION = '0.27_07';
 use Carp;
 
 #######
@@ -50,7 +50,7 @@ has 'format' => (
 			dsl      => 1,
 			mi       => 1,
 			mb       => 1,
-			dzil     => 1,
+			eumm     => 1,
 			dist     => 1,
 			cpanfile => 1,
 			metajson => 1,
@@ -115,7 +115,7 @@ App::Midgen::Role::Options - Package Options used by L<App::Midgen>
 
 =head1 VERSION
 
-version: 0.27_05
+version: 0.27_07
 
 =head1 METHODS
 

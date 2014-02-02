@@ -14,11 +14,12 @@ lib/App/Midgen/Role/Attributes.pm
 lib/App/Midgen/Role/AttributesX.pm
 lib/App/Midgen/Role/Eval.pm
 lib/App/Midgen/Role/FindMinVersion.pm
+lib/App/Midgen/Role/FindMinVersion.pm.orig
 lib/App/Midgen/Role/Options.pm
 lib/App/Midgen/Role/Output.pm
 lib/App/Midgen/Role/Output/CPANfile.pm
 lib/App/Midgen/Role/Output/Dist.pm
-lib/App/Midgen/Role/Output/Dzil.pm
+lib/App/Midgen/Role/Output/EUMM.pm
 lib/App/Midgen/Role/Output/Infile.pm
 lib/App/Midgen/Role/Output/MB.pm
 lib/App/Midgen/Role/Output/METAjson.pm

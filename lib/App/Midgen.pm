@@ -20,7 +20,7 @@ no if $] > 5.017010, warnings => 'experimental::smartmatch';
 # Load time and dependencies negate execution time
 # use namespace::clean -except => 'meta';
 
-our $VERSION = '0.27_05';
+our $VERSION = '0.27_07';
 use English qw( -no_match_vars ); # Avoids reg-ex performance penalty
 local $OUTPUT_AUTOFLUSH = 1;
 
@@ -55,7 +55,7 @@ sub run {
 	try {
 		$self->first_package_name();
 	};
-	$self->output_header();
+#	$self->output_header();
 
 	$self->find_required_modules();
 #	$self->find_required_test_modules();
@@ -102,6 +102,9 @@ sub run {
 
 
 	}
+
+	# display chosen output format 
+	$self->output_header();
 
 	$self->output_main_body( 'requires',      $self->{package_requires} );
 	$self->output_main_body( 'test_requires', $self->{test_requires} );
@@ -167,7 +170,7 @@ sub _find_package_names {
 	my $filename = $_;
 	state $files_checked;
 	if ( defined $files_checked ) {
-		return if $files_checked >= THREE;
+		return if $files_checked >= THREE and not $self->min_ver_fast;
 	}
 
 	# Only check in pm files
@@ -917,7 +920,7 @@ App::Midgen - Check B<requires> & B<test_requires> of your package for CPAN incl
 
 =head1 VERSION
 
-This document describes App::Midgen version: 0.27_05
+This document describes App::Midgen version: 0.27_07
 
 =head1 SYNOPSIS
 
