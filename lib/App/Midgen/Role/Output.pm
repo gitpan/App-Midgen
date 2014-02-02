@@ -5,13 +5,12 @@ use Moo::Role;
 with qw(
 	App::Midgen::Role::Output::CPANfile
 	App::Midgen::Role::Output::Dist
-	App::Midgen::Role::Output::Dzil
 	App::Midgen::Role::Output::EUMM
 	App::Midgen::Role::Output::Infile
 	App::Midgen::Role::Output::MB
 	App::Midgen::Role::Output::METAjson
-	App::Midgen::Role::Output::MI
 	App::Midgen::Role::Output::MIdsl
+	App::Midgen::Role::Output::MI
 );
 requires qw( format distribution_name get_module_version verbose );
 
@@ -21,7 +20,7 @@ no if $] > 5.017010, warnings => 'experimental::smartmatch';
 # Load time and dependencies negate execution time
 # use namespace::clean -except => 'meta';
 
-our $VERSION = '0.27_07';
+our $VERSION = '0.27_09';
 use English qw( -no_match_vars ); # Avoids reg-ex performance penalty
 local $OUTPUT_AUTOFLUSH = 1;
 
@@ -183,7 +182,7 @@ App::Midgen::Role::Output - A collection of output orientated methods used by L<
 
 =head1 VERSION
 
-version: 0.27_07
+version: 0.27_09
 
 =head1 DESCRIPTION
 
