@@ -3,20 +3,20 @@ abstract: 'Check B<requires> & B<test_requires> of your package for CPAN inclusi
 author:
   - 'Kevin Dawson <bowtie@cpan.org>'
 build_requires:
-  ExtUtils::MakeMaker: 6.59
-  Test::CheckDeps: 0.01
-  Test::More: 0.99
-  Test::Requires: 0.07
+  ExtUtils::MakeMaker: '6.59'
+  Test::CheckDeps: '0.01'
+  Test::More: '1.001002'
+  Test::Requires: '0.07'
 configure_requires:
-  ExtUtils::CBuilder: 0.27
-  ExtUtils::MakeMaker: 6.59
+  ExtUtils::CBuilder: '0.27'
+  ExtUtils::MakeMaker: '6.59'
 distribution_type: module
 dynamic_config: 1
 generated_by: 'Module::Install version 1.06'
 license: perl
 meta-spec:
   url: http://module-build.sourceforge.net/META-spec-v1.4.html
-  version: 1.4
+  version: '1.4'
 module_name: App::Midgen
 name: App-Midgen
 no_index:
@@ -25,43 +25,43 @@ no_index:
     - t
     - xt
 recommends:
-  ExtUtils::MakeMaker: 6.8
-  File::Spec::Functions: 3.4
-  List::Util: 1.35
-  Test::Pod: 1.48
-  Test::Pod::Coverage: 1.08
-  Test::Script: 1.07
+  ExtUtils::MakeMaker: '6.88'
+  File::Spec::Functions: '3.4'
+  List::Util: '1.38'
+  Test::Pod: '1.48'
+  Test::Pod::Coverage: '1.08'
+  Test::Script: '1.07'
 requires:
-  Carp: 1.32
-  Class::XSAccessor: 1.18
-  Cwd: 3.4
-  Data::Printer: 0.35
-  File::Slurp: 9999.19
-  File::Spec: 3.4
-  Getopt::Long: 2.42
-  JSON::Tiny: 0.35
-  List::MoreUtils: 0.33
-  MetaCPAN::API: 0.43
-  Module::CoreList: 3.0
-  Moo: 1.003001
-  PPI: 1.215
-  PPI::XS: 0.902
-  Perl::MinimumVersion: 1.32
-  Perl::MinimumVersion::Fast: 0.11
-  Perl::PrereqScanner: 1.017
-  Pod::Usage: 1.63
-  Scalar::Util: 1.32
-  Term::ANSIColor: 4.02
-  Time::Stamp: 1.3
-  Try::Tiny: 0.18
-  Type::Tiny: 0.026
-  Types::Standard: 0.03
-  constant: 1.27
+  Carp: '1.32'
+  Class::XSAccessor: '1.19'
+  Cwd: '3.4'
+  Data::Printer: '0.35'
+  File::Slurp: '9999.19'
+  File::Spec: '3.4'
+  Getopt::Long: '2.42'
+  JSON::Tiny: '0.4'
+  List::MoreUtils: '0.33'
+  MetaCPAN::API: '0.43'
+  Module::CoreList: '3.04'
+  Moo: '1.004002'
+  PPI: '1.215'
+  PPI::XS: '0.902'
+  Perl::MinimumVersion: '1.32'
+  Perl::MinimumVersion::Fast: '0.11'
+  Perl::PrereqScanner: '1.019'
+  Pod::Usage: '1.63'
+  Scalar::Util: '1.38'
+  Term::ANSIColor: '4.02'
+  Time::Stamp: '1.3'
+  Try::Tiny: '0.19'
+  Type::Tiny: '0.038'
+  Types::Standard: '0.038'
+  constant: '1.27'
   perl: 5.10.1
-  version: 0.9904
+  version: '0.9907'
 resources:
   bugtracker: https://github.com/kevindawson/App-Midgen/issues
   homepage: https://github.com/kevindawson/App-Midgen
   license: http://dev.perl.org/licenses/
   repository: git://github.com/kevindawson/App-Midgen.git
-version: 0.27_09
+version: 0.27_11

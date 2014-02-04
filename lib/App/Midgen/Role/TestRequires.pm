@@ -13,7 +13,7 @@ use Data::Printer {caller_info => 1, colored => 1,};
 # Load time and dependencies negate execution time
 # use namespace::clean -except => 'meta';
 
-our $VERSION = '0.27_09';
+our $VERSION = '0.27_11';
 use constant {BLANK => q{ }, NONE => q{}, TWO => 2, THREE => 3,};
 
 
@@ -182,7 +182,7 @@ __END__
 
 =pod
 
-=encoding utf8
+=encoding UTF-8
 
 =head1 NAME
 
@@ -191,7 +191,7 @@ for methods in use L<Test::Requires> blocks, used by L<App::Midgen>
 
 =head1 VERSION
 
-version: 0.27_09
+version: 0.27_11
 
 =head1 METHODS
 
@@ -199,7 +199,7 @@ version: 0.27_09
 
 =item * xtests_test_requires
 
-Checking for the following, extracting module name only.
+Checking for the following, extracting module name and version string.
 
  use Test::Requires { 'Test::Pod' => 1.46 };
  use Test::Requires { 'Test::Extra' => 1.46 };

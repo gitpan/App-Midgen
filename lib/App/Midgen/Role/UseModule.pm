@@ -10,7 +10,7 @@ use version 0.9902;
 use Data::Printer;    # caller_info => 1;
 use Try::Tiny;
 
-our $VERSION = '0.27_09';
+our $VERSION = '0.27_11';
 use constant {BLANK => q{ }, TRUE => 1, FALSE => 0, NONE => q{}, TWO => 2,
 	THREE => 3,};
 
@@ -20,6 +20,8 @@ use constant {BLANK => q{ }, TRUE => 1, FALSE => 0, NONE => q{}, TWO => 2,
 #######
 sub xtests_use_module {
 	my $self = shift;
+	my $storage_location = shift;
+
 	my @modules;
 	my @version_strings;
 
@@ -63,7 +65,7 @@ sub xtests_use_module {
 						sub {
 							$_[1]->isa('PPI::Token::Word')
 								and $_[1]->content
-								=~ m{\A(?:use_module|use_package_optimistically|require_module)\z};
+								=~ m{\A[Module::Runtime::]*(?:use_module|use_package_optimistically|require_module)\z};
 						}
 					)
 					)
@@ -148,7 +150,7 @@ sub xtests_use_module {
 						sub {
 							$_[1]->isa('PPI::Token::Word')
 								and $_[1]->content
-								=~ m{\A(?:use_module|use_package_optimistically)\z};
+								=~ m{\A[Module::Runtime::]*(?:use_module|use_package_optimistically)\z};
 						}
 					)
 					)
@@ -232,7 +234,7 @@ sub xtests_use_module {
 								sub {
 									$_[1]->isa('PPI::Token::Word')
 										and $_[1]->content
-										=~ m{\A(?:use_module|use_package_optimistically)\z};
+										=~ m{\A[Module::Runtime::]*(?:use_module|use_package_optimistically)\z};
 								}
 							)
 							)
@@ -327,7 +329,7 @@ sub xtests_use_module {
 						sub {
 							$_[1]->isa('PPI::Token::Word')
 								and $_[1]->content
-								=~ m{\A(?:use_module|use_package_optimistically)\z};
+								=~ m{\A[Module::Runtime::]*(?:use_module|use_package_optimistically)\z};
 						}
 					)
 					)
@@ -353,7 +355,18 @@ sub xtests_use_module {
 
 	# if we found a module, process it with the correct catogery
 	if (scalar @modules > 0) {
-		$self->_process_found_modules('package_requires', \@modules);
+		if ($storage_location eq 'runtime_recommends') {
+			if ($self->format =~ /cpanfile|metajson/) {
+				$self->_process_found_modules('runtime_recommends', \@modules);
+
+			}
+			else {
+				$self->_process_found_modules('package_requires', \@modules);
+			}
+
+		}
+
+#		$self->_process_found_modules('package_requires', \@modules);
 	}
 	return;
 }
@@ -467,25 +480,36 @@ __END__
 
 =head1 NAME
 
-App::Midgen::Roles::UseModule - extra checks for test files, looking
-for methods in use_ok in BEGIN blocks, used by L<App::Midgen>
+App::Midgen::Roles::UseModule - looking for methods with Module::Runtime
+includes, used by L<App::Midgen>
 
 =head1 VERSION
 
-version: 0.27_09
+version: 0.27_11
 
 =head1 DESCRIPTION
 
-This scanner will look for the following formats or variations there in,
-inside BEGIN blocks in test files:
+This scanner will look for the following formats or variations there in.
 
 =begin :list
 
-* use_module( 'Fred::BloggsOne', '1.01' );
+* use_module("Module::Name", x.xx)->new( ... );
 
-* use_module( "Fred::BloggsTwo", "2.02" );
+* require_module( 'Module::Name');
 
-* use_module( 'Fred::BloggsThree', 3.03 );
+* use_package_optimistically("Module::Name", x.xx)->new( ... );
+
+* my $abc = use_module("Module::Name", x.xx)->new( ... );
+
+* my $abc = use_package_optimistically("Module::Name", x.xx)->new( ... );
+
+* $abc = use_module("Module::Name", x.xx)->new( ... );
+
+* $abc = use_package_optimistically("Module::Name", x.xx)->new( ... );
+
+* return use_module( 'Module::Name', x,xx )->new( ... );
+
+* return use_package_optimisticall( 'Module::Name', x.xx )->new( ... );
 
 =end :list
 
@@ -493,19 +517,22 @@ inside BEGIN blocks in test files:
 
 =over 4
 
-=item * xtests_use_module 
+=item * xtests_use_module
 
-Checking for the following, extracting module name only.
+Checking for the following, extracting module name and version strings.
 
- BEGIN {
-   use_ok( 'Term::ReadKey', '2.30' );
-   use_ok( 'Term::ReadLine', '1.10' );
-   use_ok( 'Fred::BloggsOne', '1.01' );
-   use_ok( "Fred::BloggsTwo", "2.02" );
-   use_ok( 'Fred::BloggsThree', 3.03 );
- }
+  use_module("Module::Name", x.xx)->new( ... );
+  require_module( 'Module::Name');
+  use_package_optimistically("Module::Name", x.xx)->new( ... );
 
-Used to check files in t/ and xt/ directories.
+  my $abc = use_module("Module::Name", x.xx)->new( ... );
+  my $abc = use_package_optimistically("Module::Name", x.xx)->new( ... );
+
+  $abc = use_module("Module::Name", x.xx)->new( ... );
+  $abc = use_package_optimistically("Module::Name", x.xx)->new( ... );
+
+  return use_module( 'Module::Name', x,xx )->new( ... );
+  return use_package_optimisticall( 'Module::Name', x.xx )->new( ... );
 
 =back
 
