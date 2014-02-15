@@ -44,6 +44,7 @@ requires:
   MetaCPAN::API: '0.43'
   Module::CoreList: '3.04'
   Module::Runtime: '0.014'
+  Module::Version: '0.12'
   Moo: '1.004002'
   PPI: '1.215'
   PPI::XS: '0.902'
@@ -65,4 +66,4 @@ resources:
   homepage: https://github.com/kevindawson/App-Midgen
   license: http://dev.perl.org/licenses/
   repository: git://github.com/kevindawson/App-Midgen.git
-version: 0.29_05
+version: 0.29_07
