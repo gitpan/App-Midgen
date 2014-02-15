@@ -5,7 +5,7 @@ use strict;
 use warnings FATAL => 'all';
 
 use version;
-our $VERSION = '0.28';
+our $VERSION = '0.29_03';
 use English qw( -no_match_vars );    # Avoids reg-ex performance penalty
 local $OUTPUT_AUTOFLUSH = 1;
 
@@ -28,7 +28,7 @@ use JSON::Tiny;
 my $json = JSON::Tiny->new;
 
 use File::Spec;
-use File::Slurp qw(read_file write_file);
+use File::Slurp::Tiny qw(read_file write_file);
 
 my $midgenrc = File::Spec->catfile($ENV{HOME}, '.midgenrc');
 
@@ -136,7 +136,7 @@ midgen - Check B<requires> & B<test_requires> of your package for CPAN inclusion
 
 =head1 VERSION
 
-This document describes midgen version: 0.28
+This document describes midgen version: 0.29_03
 
 =head1 SYNOPSIS
 

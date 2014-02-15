@@ -36,13 +36,14 @@ requires:
   Class::XSAccessor: '1.19'
   Cwd: '3.4'
   Data::Printer: '0.35'
-  File::Slurp: '9999.19'
+  File::Slurp::Tiny: '0.003'
   File::Spec: '3.4'
   Getopt::Long: '2.42'
   JSON::Tiny: '0.4'
   List::MoreUtils: '0.33'
   MetaCPAN::API: '0.43'
   Module::CoreList: '3.04'
+  Module::Runtime: '0.014'
   Moo: '1.004002'
   PPI: '1.215'
   PPI::XS: '0.902'
@@ -58,10 +59,10 @@ requires:
   Types::Standard: '0.038'
   constant: '1.27'
   perl: 5.10.1
-  version: '0.9907'
+  version: '0.9908'
 resources:
   bugtracker: https://github.com/kevindawson/App-Midgen/issues
   homepage: https://github.com/kevindawson/App-Midgen
   license: http://dev.perl.org/licenses/
   repository: git://github.com/kevindawson/App-Midgen.git
-version: '0.28'
+version: 0.29_03
