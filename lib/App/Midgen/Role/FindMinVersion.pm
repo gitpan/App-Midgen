@@ -1,76 +1,60 @@
 package App::Midgen::Role::FindMinVersion;
 
-use v5.10;
 use Types::Standard qw( Bool );
 use Moo::Role;
 requires qw( ppi_document debug );
 
-our $VERSION = '0.29_07';
-use English qw( -no_match_vars );
-use version;
-use constant {TRUE => 1, FALSE => 0,};
+our $VERSION = '0.29_09';
+$VERSION = eval $VERSION; ## no critic
+
+use Perl::MinimumVersion;
 use Try::Tiny;
 
-has 'min_ver_fast' =>
-  (is => 'lazy', isa => Bool,);# builder => '_build_min_ver_fast',);
-
-sub _build_min_ver_fast {
-  my $self = shift;
-
-  try {
-    eval "use Perl::MinimumVersion::Fast";
-    if ($EVAL_ERROR) {
-      use Perl::MinimumVersion;
-      return FALSE;
-    }
-    else {
-      return TRUE;
-    }
-  };
-
-}
+use constant {TWO => 2,};
+use version;
 
 #######
 # find min perl version
 ######
 sub min_version {
-  my $self     = shift;
-  my $filename = shift;
+	my $self = shift;
 
-  my $dist_min_ver = $App::Midgen::Min_Version;
+	my $dist_min_ver = $App::Midgen::Min_Version;
+	my $object;
 
-  my $object;
+	try {
+		$object = Perl::MinimumVersion->new($self->ppi_document);
+	};
 
-  # Create the version checking object
-  if ($self->min_ver_fast) {
-    $object = Perl::MinimumVersion::Fast->new($filename);
-  }
-  else {
-    $object = Perl::MinimumVersion->new($self->ppi_document);
-  }
+	# Find the minimum version
+	try {
+		$dist_min_ver
+			= version->parse($dist_min_ver)
+			> version->parse($object->minimum_version)
+			? version->parse($dist_min_ver)
+			: version->parse($object->minimum_version);
+	};
 
-  # Find the minimum version
-  my $minimum_version = $object->minimum_version;
-  $dist_min_ver
-    = version->parse($dist_min_ver) > version->parse($minimum_version)
-    ? version->parse($dist_min_ver)->numify
-    : version->parse($minimum_version)->numify;
+	try {
+		$dist_min_ver
+			= version->parse($dist_min_ver)
+			> version->parse($object->minimum_explicit_version)
+			? version->parse($dist_min_ver)
+			: version->parse($object->minimum_explicit_version);
+	};
 
-  my $minimum_explicit_version = $object->minimum_explicit_version;
-  $dist_min_ver
-    = version->parse($dist_min_ver) > version->parse($minimum_explicit_version)
-    ? version->parse($dist_min_ver)->numify
-    : version->parse($minimum_explicit_version)->numify;
+	try {
+		$dist_min_ver
+			= version->parse($dist_min_ver)
+			> version->parse($object->minimum_syntax_version)
+			? version->parse($dist_min_ver)
+			: version->parse($object->minimum_syntax_version);
+	};
 
-  my $minimum_syntax_version = $object->minimum_syntax_version;
-  $dist_min_ver
-    = version->parse($dist_min_ver) > version->parse($minimum_syntax_version)
-    ? version->parse($dist_min_ver)->numify
-    : version->parse($minimum_syntax_version)->numify;
+	print "min_version - $dist_min_ver\n" if ($self->verbose == TWO);
 
-  warn 'min_version - ' . $dist_min_ver if $self->debug;
-  $App::Midgen::Min_Version = $dist_min_ver;
-  return;
+	$App::Midgen::Min_Version = version->parse($dist_min_ver)->numify;
+	return;
 }
 
 no Moo::Role;
@@ -89,7 +73,7 @@ App::Midgen::Roles::FindMinVersion - used by L<App::Midgen>
 
 =head1 VERSION
 
-version: 0.29_07
+version: 0.29_09
 
 =head1 METHODS
 
@@ -99,19 +83,6 @@ version: 0.29_07
 
 Used to find the minimum version of your package by taking a quick look,
 in a module or script and updating C<$App::Midgen::Min_Version> accordingly.
-
-=back
-
-=head2 ACCESSORS
-
-=over 4
-
-=item * min_ver_fast
-
-Used as a flag to indicate which of the following is install
-
-  TRUE ->  L<Perl::MinimumVersion::Fast>
-  FALSE -> L<Perl::MinimumVersion>
 
 =back
 

@@ -6,6 +6,7 @@ with qw(
 	App::Midgen::Role::Options
 	App::Midgen::Role::Attributes
 	App::Midgen::Role::AttributesX
+	App::Midgen::Role::InDistribution
 	App::Midgen::Role::TestRequires
 	App::Midgen::Role::UseOk
 	App::Midgen::Role::Eval
@@ -19,8 +20,10 @@ no if $] > 5.017010, warnings => 'experimental::smartmatch';
 
 # Load time and dependencies negate execution time
 # use namespace::clean -except => 'meta';
+use version;
+our $VERSION = '0.29_09';
+$VERSION = eval $VERSION; ## no critic
 
-our $VERSION = '0.29_07';
 use English qw( -no_match_vars );    # Avoids reg-ex performance penalty
 local $OUTPUT_AUTOFLUSH = 1;
 
@@ -33,11 +36,11 @@ use MetaCPAN::API;
 use Module::CoreList;
 use PPI;
 use Perl::PrereqScanner;
-use Scalar::Util qw(looks_like_number);
+#use Scalar::Util qw(looks_like_number);
 use Term::ANSIColor qw( :constants colored colorstrip );
 use Try::Tiny;
 
-use constant {BLANK => q{ }, NONE => q{}, TWO => 2, THREE => 3,};
+use constant {BLANK => q{ }, NONE => q{}, TWO => 2, THREE => 3, TRUE => 1, FALSE => 0,};
 use version;
 
 # stop rlib from Fing all over cwd
@@ -58,34 +61,36 @@ sub run {
 
 	$self->find_required_modules();
 
-	p $self->{modules} if ($self->verbose == TWO);
-
-	$self->remove_noisy_children($self->{package_requires})
-		if $self->experimental;
-	$self->remove_twins($self->{package_requires}) if $self->experimental;
-
-
-# Run a second time if we found any twins, this will sort out twins and triplets etc
-	$self->remove_noisy_children($self->{package_requires})
-		if $self->found_twins;
+#	p $self->{modules} if ($self->verbose == TWO);
 
 	$self->find_required_test_modules();
 
-	# Now we have switched to MetaCPAN-Api we can hunt for noisy children in test requires
-	if ($self->experimental) {
-		p $self->{test_requires} if $self->debug;
-		$self->remove_noisy_children($self->{test_requires});
-		foreach my $module (keys %{$self->{test_requires}}) {
-			if ($self->{package_requires}{$module}) {
-				warn $module if $self->debug;
-				try {
-					delete $self->{test_requires}{$module};
-				};
-			}
-		}
-		p $self->{test_requires} if $self->debug;
 
+	# Now we have switched to MetaCPAN-Api we can hunt for noisy children in tests
+	if ($self->experimental) {
+
+		$self->remove_noisy_children($self->{package_requires});
+		$self->remove_twins($self->{package_requires});
+
+		# Run a second time if we found any twins, this will sort out twins and triplets etc
+		$self->remove_noisy_children($self->{package_requires}) if $self->found_twins;
+
+		foreach (qw( test_requires recommends test_develop )) {
+
+			p $self->{$_} if $self->debug;
+			$self->remove_noisy_children($self->{$_});
+			foreach my $module (keys %{$self->{$_}}) {
+				if ($self->{package_requires}{$module}) {
+					warn $module if $self->debug;
+					try {
+						delete $self->{$_}{$module};
+					};
+				}
+			}
+			p $self->{$_} if $self->debug;
+		}
 	}
+
 
 	# display chosen output format
 	$self->output_header();
@@ -128,7 +133,7 @@ sub first_package_name {
 	try {
 		find(
 			sub { _find_package_names($self); },
-			File::Spec->catfile($Working_Dir, 'lib')
+			File::Spec->catfile($Working_Dir, 'lib' )
 		);
 	};
 
@@ -161,7 +166,7 @@ sub _find_package_names {
 	my $filename = $_;
 	state $files_checked;
 	if (defined $files_checked) {
-		return if $files_checked >= THREE and not $self->min_ver_fast;
+		return if $files_checked >= THREE;
 	}
 
 	# Only check in pm files
@@ -169,19 +174,6 @@ sub _find_package_names {
 
 	# Load a Document from a file
 	$self->_set_ppi_document(PPI::Document->new($filename));
-
-	try {
-		if ($self->min_ver_fast) {
-
-			# say 'running fast';
-			$self->min_version($filename);
-		}
-		else {
-
-			# say 'running slow';
-			$self->min_version();    # if not $self->min_ver_fast;
-		}
-	};
 
 	# Extract package names
 	push @{$self->package_names},
@@ -199,7 +191,7 @@ sub find_required_modules {
 	my $self = shift;
 
 	my @posiable_directories_to_search
-		= map { File::Spec->catfile($Working_Dir, $_) } qw( script bin lib );
+		= map { File::Spec->catfile($Working_Dir, $_) } qw( bin share script lib );
 
 	my @directories_to_search = ();
 	foreach my $directory (@posiable_directories_to_search) {
@@ -257,36 +249,15 @@ sub find_required_test_modules {
 sub _find_makefile_requires {
 	my $self      = shift;
 	my $filename  = $_;
-	my $is_script = 0;
 
-	given ($filename) {
-		when (m/[.]pm$/) {
-			say 'looking for requires in (.pm)-> ' . $filename
-				if $self->verbose >= TWO;
-		}
-		when (m/[.]psgi$/) {
-			say 'looking for requires in (.psgi)-> ' . $filename
-				if $self->verbose >= TWO;
-		}
-		when (m/[.]\w{2,4}$/) {
-			say 'rejecting ' . $filename if $self->verbose >= TWO;
-			return;
-		}
-		default { return if not $self->_is_perlfile($filename); $is_script = 1; }
-	}
-	try {
-		if ($self->min_ver_fast) {
-			$self->min_version($filename);
-		}
-		else {
-			$self->min_version() if $is_script;
-		}
-	};
+	return if $self->is_perlfile($filename) eq FALSE;
 
 	my $relative_dir = $File::Find::dir;
 	$relative_dir =~ s/$Working_Dir//;
 	$self->_set_looking_infile(File::Spec->catfile($relative_dir, $filename));
 	$self->_set_ppi_document(PPI::Document->new($filename));
+
+	$self->min_version();
 
 	# do extra test early check for use_module before hand
 	$self->xtests_use_module('runtime_recommends');
@@ -311,7 +282,6 @@ sub _find_makefile_requires {
 		my $ppi_tqs = $self->ppi_document->find('PPI::Token::Quote::Single');
 		if ($ppi_tqs) {
 
-			# my @modules;
 			foreach my $include (@{$ppi_tqs}) {
 
 				my $module = $include->content;
@@ -319,7 +289,8 @@ sub _find_makefile_requires {
 				$module =~ s/[']$//;
 
 				next if $module =~ m/^Dist::Zilla::Role::PluginBundle/;
-				next if $module =~ m{[.|$|\\|/|-|%|@|]};
+				next if $module =~ m{\A[-|:|\d|a-z]};
+				next if $module =~ m{[.|$|\\|/|\-|\[|%|@|]};
 				next if $module eq NONE;
 
 				push @modules, 'Dist::Zilla::Plugin::' . $module;
@@ -331,41 +302,6 @@ sub _find_makefile_requires {
 	return;
 }
 
-########
-# is this a perl file
-#######
-sub _is_perlfile {
-	my $self     = shift;
-	my $filename = shift;
-
-	$self->_set_ppi_document(PPI::Document->new($filename));
-	my $ppi_tc = $self->ppi_document->find('PPI::Token::Comment');
-
-	my $a_pl_file = 0;
-
-	if ($ppi_tc) {
-
-		# check first token-comment for a she-bang
-		$a_pl_file = 1 if $ppi_tc->[0]->content =~ m/^#!.*perl.*$/;
-	}
-
-	if ($self->ppi_document->find('PPI::Statement::Package') || $a_pl_file) {
-		if ($self->verbose >= TWO) {
-
-			print "looking for requires in (package) -> "
-				if $self->ppi_document->find('PPI::Statement::Package');
-			print "looking for requires in (shebang) -> "
-				if $ppi_tc->[0]->content =~ /perl/;
-			say $filename ;
-		}
-		return 1;
-	}
-	else {
-		return 0;
-	}
-
-}
-
 
 #######
 # _find_makefile_test_requires
@@ -373,19 +309,20 @@ sub _is_perlfile {
 sub _find_makefile_test_requires {
 	my $self       = shift;
 	my $directorie = shift;
+	my $filename = $_;
+
 	##p $directorie;
 	my $prerequisites
 		= ($directorie =~ m/xt$/) ? 'test_develop' : 'test_requires';
 	$self->_set_xtest('test_develop') if $directorie =~ m/xt$/;
 
-	my $filename = $_;
-	return if $filename !~ /[.]t|pm$/sxm;
-
-	say 'looking for test_requires in: ' . $filename if $self->verbose >= TWO;
+	return if $self->is_perlfile($filename) eq FALSE;
 
 	my $relative_dir = $File::Find::dir;
 	$relative_dir =~ s/$Working_Dir//;
 	$self->_set_looking_infile(File::Spec->catfile($relative_dir, $filename));
+
+	$self->min_version() if not $self->experimental;
 
 	# Load a Document from a file and check use and require contents
 	$self->_set_ppi_document(PPI::Document->new($filename));
@@ -733,8 +670,7 @@ sub remove_twins {
 
 				$version = $self->get_module_version($dum_parient);
 
-				if (looks_like_number($version)) {
-
+				if ( version::is_lax($version) ) {
 					#Check parent version against a twins version
 					if ($version eq $required_ref->{$sorted_modules[$n]}) {
 						say $dum_parient . ' -> '
@@ -931,7 +867,7 @@ App::Midgen - Check B<requires> & B<test_requires> of your package for CPAN incl
 
 =head1 VERSION
 
-This document describes App::Midgen version: 0.29_07
+This document describes App::Midgen version: 0.29_09
 
 =head1 SYNOPSIS
 
@@ -972,12 +908,12 @@ B<MetaCPAN Version Number Displayed>
 =back
 
 I<Food for thought, if we update our Modules,
- don't we want our users to use the current version,
- so should we not by default do the same with others Modules.
- Thus we always show the current version number, regardless.>
+don't we want our users to use the current version,
+so should we not by default do the same with others Modules.
+Thus we always show the current version number, regardless.>
 
 We also display some other complementary information relevant to this package
- and your chosen output format.
+and your chosen output format.
 
 For more info and sample output see L<wiki|https://github.com/kevindawson/App-Midgen/wiki>
 
@@ -996,7 +932,7 @@ Search for Includes B<use> and B<require> in package modules
 =item * find_required_test_modules
 
 Search for Includes B<use> and B<require> in test scripts,
- also B<use_ok>, I<plus some other patterns along the way.>
+also B<use_ok>, I<plus some other patterns along the way.>
 
 =item * first_package_name
 

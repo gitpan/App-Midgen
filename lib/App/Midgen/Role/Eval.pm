@@ -4,15 +4,15 @@ use v5.10;
 use Moo::Role;
 requires qw( ppi_document debug format xtest _process_found_modules develop );
 
-# use version 0.9902;
-use Try::Tiny 0.12;
+use Try::Tiny;
 use Data::Printer {caller_info => 1, colored => 1,};
 
 # Load time and dependencies negate execution time
 # use namespace::clean -except => 'meta';
 
-use version;
-our $VERSION = '0.29_07';
+our $VERSION = '0.29_09';
+$VERSION = eval $VERSION; ## no critic
+
 use English qw( -no_match_vars );    # Avoids reg-ex performance penalty
 local $OUTPUT_AUTOFLUSH = 1;
 
@@ -85,6 +85,111 @@ sub xtests_eval {
 	};
 
 
+#PPI::Document
+#  PPI::Statement
+#    PPI::Token::Word  	'eval'
+#    PPI::Token::Whitespace  	' '
+#    PPI::Structure::Block  	{ ... }
+#      PPI::Statement::Include
+#        PPI::Token::Word  	'require'
+#        PPI::Token::Whitespace  	' '
+#        PPI::Token::Word  	'PAR::Dist'
+#        PPI::Token::Structure  	';'
+#      PPI::Token::Whitespace  	' '
+#      PPI::Statement
+#        PPI::Token::Word  	'PAR::Dist'
+#        PPI::Token::Operator  	'->'
+#        PPI::Token::Word  	'VERSION'
+#        PPI::Structure::List  	( ... )
+#          PPI::Statement::Expression
+#            PPI::Token::Number::Float  	'0.17'
+
+	try {
+		my @chunks2 = @{$self->ppi_document->find('PPI::Statement')};
+
+		foreach my $chunk (@chunks2) {
+			if (
+				$chunk->find(
+					sub {
+						$_[1]->isa('PPI::Token::Word')
+							and $_[1]->content =~ m{\A(?:eval|try)\z};
+					}
+				)
+				)
+			{
+
+				for (0 .. $#{$chunk->{children}}) {
+
+				my $module_name;
+				my $version_string;
+
+					if ($chunk->{children}[$_]->isa('PPI::Structure::Block')) {
+
+						my $ppi_sb = $chunk->{children}[$_]
+							if $chunk->{children}[$_]->isa('PPI::Structure::Block');
+
+						for (0 .. $#{$ppi_sb->{children}}) {
+
+							if ($ppi_sb->{children}[$_]->isa('PPI::Statement::Include')) {
+
+								my $ppi_si = $ppi_sb->{children}[$_]
+									if $ppi_sb->{children}[$_]->isa('PPI::Statement::Include');
+
+								if ( $ppi_si->{children}[0]->isa('PPI::Token::Word')
+									&& $ppi_si->{children}[0]->content eq 'require')
+								{
+
+									$module_name = $ppi_si->{children}[2]->content
+										if $ppi_si->{children}[2]->isa('PPI::Token::Word');
+
+									# check for first char upper in module name
+									$module_name
+										= ($module_name =~ m/\A(?:[A-Z])/) ? $module_name : undef;
+
+#									p $module_name;
+								}
+							}
+
+							if ($ppi_sb->{children}[$_]->isa('PPI::Statement')) {
+
+								my $ppi_s = $ppi_sb->{children}[$_]
+									if $ppi_sb->{children}[$_]->isa('PPI::Statement');
+
+								if (
+									(
+										    $ppi_s->{children}[0]->isa('PPI::Token::Word')
+										and $ppi_s->{children}[0]->content eq $module_name
+									)
+									&& (  $ppi_s->{children}[2]->isa('PPI::Token::Word')
+										and $ppi_s->{children}[2]->content eq 'VERSION')
+									)
+								{
+
+									my $ppi_sl = $ppi_s->{children}[3]
+										if $ppi_s->{children}[3]->isa('PPI::Structure::List');
+
+									$version_string
+										= $ppi_sl->{children}[0]->{children}[0]->content;
+
+#									p $mod_ver;
+
+								}
+							}
+						}
+					}
+					if (version::is_lax($version_string)) {
+
+						push @modules, $module_name;
+						$version_string
+							= version::is_lax($version_string) ? $version_string : 0;
+
+						$self->{found_version}{$module_name} = $version_string;
+					}
+				}
+			}
+		}
+	};
+
 	p @modules         if $self->debug;
 	p @version_strings if $self->debug;
 
@@ -146,12 +251,8 @@ sub _mod_ver {
 		$version_string =~ s/\s*$//;
 		$version_string =~ s/[A-Z_a-z]|\s|\$|s|:|;//g;
 
-		try {
-			version->parse($version_string)->is_lax;
-		}
-		catch {
-			$version_string = 0 if $_;
-		};
+		$version_string = version::is_lax($version_string) ? $version_string : 0;
+
 		$self->{found_version}{$module_name} = $version_string;
 	}
 
@@ -174,7 +275,7 @@ App::Midgen::Roles::Eval - used by L<App::Midgen>
 
 =head1 VERSION
 
-This document describes App::Midgen::Roles version: 0.29_07
+This document describes App::Midgen::Roles version: 0.29_09
 
 =head1 METHODS
 
@@ -218,3 +319,10 @@ This library is free software; you can redistribute it and/or modify
 it under the same terms as Perl itself.
 
 =cut
+316:	final indentation level: 1
+
+Final nesting depth of '{'s is 1
+The most recent un-matched '{' is on line 21
+21: sub xtests_eval {
+                    ^
+316:	To save a full .LOG file rerun with -g

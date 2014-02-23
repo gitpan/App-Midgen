@@ -1,6 +1,5 @@
 package App::Midgen::Role::Attributes;
 
-use v5.10;
 use Types::Standard qw( ArrayRef Bool Int Object Str);
 use Moo::Role;
 requires qw( experimental format );
@@ -10,7 +9,9 @@ requires qw( experimental format );
 # Load time and dependencies negate execution time
 # use namespace::clean -except => 'meta';
 
-our $VERSION = '0.29_07';
+our $VERSION = '0.29_09';
+$VERSION = eval $VERSION; ## no critic
+
 use Carp;
 
 #######
@@ -101,7 +102,7 @@ App::Midgen::Role::Attributes - Package Attributes used by L<App::Midgen>
 
 =head1 VERSION
 
-version: 0.29_07
+version: 0.29_09
 
 =head1 METHODS
 

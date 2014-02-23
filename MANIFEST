@@ -14,6 +14,7 @@ lib/App/Midgen/Role/Attributes.pm
 lib/App/Midgen/Role/AttributesX.pm
 lib/App/Midgen/Role/Eval.pm
 lib/App/Midgen/Role/FindMinVersion.pm
+lib/App/Midgen/Role/InDistribution.pm
 lib/App/Midgen/Role/Options.pm
 lib/App/Midgen/Role/Output.pm
 lib/App/Midgen/Role/Output/CPANfile.pm
@@ -41,6 +42,4 @@ t/05-script.t
 t/10-midgen.t
 t/11-can_xs_0.t
 t/11-can_xs_1.t
-t/11-can_xs_2.t
 t/99-report-prereqs.t
-t/testfile

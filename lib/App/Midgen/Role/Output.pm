@@ -20,14 +20,15 @@ no if $] > 5.017010, warnings => 'experimental::smartmatch';
 # Load time and dependencies negate execution time
 # use namespace::clean -except => 'meta';
 
-our $VERSION = '0.29_07';
+our $VERSION = '0.29_09';
+$VERSION = eval $VERSION; ## no critic
+
 use English qw( -no_match_vars );    # Avoids reg-ex performance penalty
 local $OUTPUT_AUTOFLUSH = 1;
 
-#use Data::Printer {caller_info => 1, colored => 1,};
 use Try::Tiny;
-use Module::Runtime qw( use_module check_module_name);
-use Module::Version 'get_version';
+
+
 #######
 # output_header
 #######
@@ -175,33 +176,15 @@ sub in_local_lib {
 	# exemption for perl :)
 	return $PERL_VERSION if $found_module eq 'perl';
 
-#	my $eu_inst = use_module('ExtUtils::Installed')->new();
-
 	try {
-		if (check_module_name($found_module)) {
-
-			# check the module is loadable
-			use_module($found_module);
-
-			try {
-				# show installed version-string
-#				return $eu_inst->version($found_module);
-				# switch to Module::Vesrion				
-				return get_version($found_module);
-			}
-			catch {
-				# Inconnu
-				# if a core module show version-string
-				return Module::CoreList::is_core($found_module)
-					? $Module::CoreList::version{$]}{$found_module}
-					: 'undef';
-
-			};
-		}
+		# Show installed version-string
+		# hack from Module::Vesrion
+		require ExtUtils::MakeMaker;
+		return MM->parse_version(MM->_installed_file_for_module($found_module));
 	}
 	catch {
 		# module not installed in local-lib
-		return 'Missing';
+		return colored('Missing ', 'red');
 	};
 }
 
@@ -222,7 +205,7 @@ App::Midgen::Role::Output - A collection of output orientated methods used by L<
 
 =head1 VERSION
 
-version: 0.29_07
+version: 0.29_09
 
 =head1 DESCRIPTION
 

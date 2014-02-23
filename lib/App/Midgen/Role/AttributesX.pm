@@ -1,13 +1,14 @@
 package App::Midgen::Role::AttributesX;
 
-use v5.10;
 use Types::Standard qw( InstanceOf );
 use Moo::Role;
 
 # Load time and dependencies negate execution time
 # use namespace::clean -except => 'meta';
 
-our $VERSION = '0.29_07';
+our $VERSION = '0.29_09';
+$VERSION = eval $VERSION; ## no critic
+
 use Carp;
 
 #######
@@ -56,7 +57,7 @@ App::Midgen::Role::AttributesX - Package Attributes used by L<App::Midgen>
 
 =head1 VERSION
 
-version: 0.29_07
+version: 0.29_09
 
 =head1 METHODS
 

@@ -1,19 +1,19 @@
 package App::Midgen::Role::TestRequires;
 
-use v5.10;
 use Moo::Role;
 requires qw( ppi_document develop debug format xtest _process_found_modules );
 
 use PPI;
 
-use Try::Tiny 0.12;
+use Try::Tiny;
 use Data::Printer {caller_info => 1, colored => 1,};
 
 # Load time and dependencies negate execution time
 # use namespace::clean -except => 'meta';
 
-use version;
-our $VERSION = '0.29_07';
+our $VERSION = '0.29_09';
+$VERSION = eval $VERSION; ## no critic
+
 use constant {BLANK => q{ }, NONE => q{}, TWO => 2, THREE => 3,};
 
 
@@ -108,12 +108,8 @@ sub xtests_test_requires {
 											$version_string =~ s/(?:'|")//g;
 											if ($version_string =~ m/\A(?:[0-9])/) {
 
-												try {
-													version->parse($version_string)->is_lax;
-												}
-												catch {
-													$version_string = 0 if $_;
-												};
+												$version_string = version::is_lax($version_string) ? $version_string : 0;
+
 												warn 'found version string - ' . $version_string
 													if $self->debug;
 												$self->{found_version}{$modules[$#modules]}
@@ -188,7 +184,7 @@ for methods in use L<Test::Requires> blocks, used by L<App::Midgen>
 
 =head1 VERSION
 
-version: 0.29_07
+version: 0.29_09
 
 =head1 METHODS
 
