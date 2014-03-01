@@ -2,10 +2,15 @@
 
 use strict;
 use warnings FATAL => 'all';
+
 use English qw( -no_match_vars );
 local $OUTPUT_AUTOFLUSH = 1;
 
 use Test::More tests => 24;
+
+BEGIN {
+	use_ok( 'App::Midgen' );
+}
 
 ######
 # let's check our subs/methods.
@@ -17,8 +22,6 @@ my @subs = qw(
 	remove_twins found_twins min_version mod_in_dist
 	numify get_module_version
 );
-
-use_ok( 'App::Midgen', @subs );
 
 foreach my $subs (@subs) {
 	can_ok( 'App::Midgen', $subs );

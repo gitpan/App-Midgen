@@ -1,11 +1,10 @@
 #!perl
 
-use 5.010001;
+use 5.008001;
 use strict;
 use warnings FATAL => 'all';
 
-our $VERSION = '0.29_09';
-$VERSION = eval $VERSION; ## no critic
+our $VERSION = '0.29_11';
 
 use English qw( -no_match_vars );    # Avoids reg-ex performance penalty
 local $OUTPUT_AUTOFLUSH = 1;
@@ -17,7 +16,7 @@ use Data::Printer {caller_info => 1, colored => 1,};
 use FindBin qw($Bin);
 use lib map {"$Bin/$_"} qw( lib ../lib );
 
-use App::Midgen 0.29;
+use App::Midgen;
 use Time::Stamp 'gmstamp';
 
 #######
@@ -47,7 +46,7 @@ use Pod::Usage;
 my $help         = 0;
 my $core         = $config->{core} || 0;
 my $dual_life    = $config->{dual_life} || 0;
-my $verbose      = $config->{verbose} // 1;
+my $verbose      = $config->{verbose} || 1;
 my @format       = $config->{format} || 'dsl';
 my $experimental = 0;
 my $quiet        = $config->{quiet} || 0;
@@ -77,9 +76,9 @@ pod2usage(1) if $help;
 #######
 
 if ($verbose > 0) {
-	say 'Running midgen v' . $VERSION;
-	say 'Stamped -> ' . gmstamp($BASETIME);
-	say 'Honouring $ENV{ANSI_COLORS_DISABLED}' if $ENV{ANSI_COLORS_DISABLED};
+	print 'Running midgen v' . $VERSION . "\n";
+	print 'Stamped -> ' . gmstamp($BASETIME) . "\n";
+	print 'Honouring $ENV{ANSI_COLORS_DISABLED}' ."\n" if $ENV{ANSI_COLORS_DISABLED};
 }
 
 my $midgen = App::Midgen->new(
@@ -120,8 +119,8 @@ if ($write) {
 #######
 if ($verbose > 0) {
 	my $run_time = time - $BASETIME;
-	say 'I just spent ' . $run_time . 's doing all that, for you, enjoy';
-	say '__END__';
+	print 'I just spent ' . $run_time . "s doing all that, for you, enjoy\n";
+	print "__END__\n";
 }
 exit(0);
 
@@ -137,7 +136,7 @@ midgen - Check B<requires> & B<test_requires> of your package for CPAN inclusion
 
 =head1 VERSION
 
-This document describes midgen version: 0.29_09
+This document describes midgen version: 0.29_11
 
 =head1 SYNOPSIS
 

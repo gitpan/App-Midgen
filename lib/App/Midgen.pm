@@ -1,6 +1,6 @@
 package App::Midgen;
 
-use v5.10;
+use 5.008001;
 use Moo;
 with qw(
 	App::Midgen::Role::Options
@@ -15,13 +15,10 @@ with qw(
 	App::Midgen::Role::UseModule
 );
 
-# turn off experimental warnings
-no if $] > 5.017010, warnings => 'experimental::smartmatch';
-
 # Load time and dependencies negate execution time
 # use namespace::clean -except => 'meta';
 use version;
-our $VERSION = '0.29_09';
+our $VERSION = '0.29_11';
 $VERSION = eval $VERSION; ## no critic
 
 use English qw( -no_match_vars );    # Avoids reg-ex performance penalty
@@ -36,10 +33,9 @@ use MetaCPAN::API;
 use Module::CoreList;
 use PPI;
 use Perl::PrereqScanner;
-#use Scalar::Util qw(looks_like_number);
 use Term::ANSIColor qw( :constants colored colorstrip );
 use Try::Tiny;
-
+use Tie::Static qw(static);
 use constant {BLANK => q{ }, NONE => q{}, TWO => 2, THREE => 3, TRUE => 1, FALSE => 0,};
 use version;
 
@@ -96,7 +92,7 @@ sub run {
 	$self->output_header();
 
 	$self->output_main_body('requires',      $self->{package_requires});
-			if ($self->format =~ /cpanfile|metajson/) {
+			if ($self->format =~ /cpanfile|metajson|dist/) {
 				$self->output_main_body('runtime_recommends', $self->{runtime_recommends});
 			}
 
@@ -152,7 +148,7 @@ sub first_package_name {
 	};
 
 	# I still want to see package name even though infile sets verbose = 0
-	say 'Package: ' . $self->distribution_name
+	print 'Package: '. $self->distribution_name ."\n"
 		if $self->verbose
 		or $self->format eq 'infile';
 
@@ -164,7 +160,7 @@ sub first_package_name {
 sub _find_package_names {
 	my $self     = shift;
 	my $filename = $_;
-	state $files_checked;
+	static \ my $files_checked;
 	if (defined $files_checked) {
 		return if $files_checked >= THREE;
 	}
@@ -275,7 +271,7 @@ sub _find_makefile_requires {
 
 	$self->{skip_not_mcpan_stamp} = 0;
 
-	if (/^Dist::Zilla::Role::PluginBundle/ ~~ @modules) {
+	if ( grep { $_ =~ m/^Dist::Zilla::Role::PluginBundle/ } @modules ) {
 
 		$self->{skip_not_mcpan_stamp} = 1;
 
@@ -350,7 +346,7 @@ sub _find_makefile_test_requires {
 	}
 
 	if (scalar @modules > 0) {
-		if ($self->format =~ /cpanfile|metajson/) {
+		if ($self->format =~ /cpanfile|metajson|dist/) {
 			if ($self->xtest eq 'test_requires') {
 				$self->_process_found_modules('test_requires', \@modules);
 			}
@@ -386,48 +382,47 @@ sub _process_found_modules {
 		# let's show every thing we can find infile
 		if ($self->format ne 'infile') {
 
-			my $distribution_name = $self->distribution_name // 'm/t';
-			given ($module) {
-				when (/perl/sxm) {
+			my $distribution_name = $self->distribution_name || 'm/t';
+
+				if ( $module =~ /perl/sxm) {
 
 					# ignore perl we will get it from minperl required
 					next;
 				}
-				when (/\A\Q$distribution_name\E/sxm) {
+				elsif ( $module =~ /\A\Q$distribution_name\E/sxm) {
 
 					# don't include our own packages here
 					next;
 				}
-				when (/^t::/sxm) {
+				elsif ( $module =~ /^t::/sxm) {
 
 					# don't include our own test packages here
 					next;
 				}
 
-				when (/Mojo/sxm) {
+				elsif ( $module =~ /Mojo/sxm) {
 					if ($self->experimental) {
 						if ($self->_check_mojo_core($module, $require_type)) {
 							if (not $self->quiet) {
 								print BRIGHT_BLACK;
-								say 'swapping out ' . $module . ' for Mojolicious';
+								print "swapping out $module for Mojolicious\n";
 								print CLEAR;
 							}
 							next;
 						}
 					}
 				}
-				when (/^Padre/sxm) {
+				elsif ( $module =~ /^Padre/sxm) {
 
-					# mark all Padre core as just Padre, for plugins
+					# mark all Padre core as just Padre only, for plugins
 					$module = 'Padre';
 				}
-			}
 		}
 
 		# lets keep track of how many times a module include is found
 		$self->{modules}{$module}{count} += 1;
 		push @{$self->{modules}{$module}{infiles}},
-			[$self->looking_infile(), $self->{found_version}{$module} // 0];
+			[$self->looking_infile(), $self->{found_version}{$module} || 0];
 
 		# don't process already found modules
 		p $self->{modules}{$module}{location} if $self->debug;
@@ -454,21 +449,20 @@ sub _store_modules {
 	$self->_in_corelist($module)
 		if not defined $self->{modules}{$module}{corelist};
 	my $version = $self->get_module_version($module, $require_type);
-	given ($version) {
 
-		when ('!mcpan') {
+		if ( $version eq '!mcpan') {
 			$self->{$require_type}{$module} = colored('!mcpan', 'magenta')
 				if not $self->{skip_not_mcpan_stamp};
 			$self->{modules}{$module}{location} = $require_type;
 			$self->{modules}{$module}{version}  = '!mcpan';
 		}
-		when ('core') {
+		elsif ( $version eq 'core') {
 			$self->{$require_type}{$module} = $version if $self->core;
 			$self->{$require_type}{$module} = '0'      if $self->zero;
 			$self->{modules}{$module}{location} = $require_type;
 			$self->{modules}{$module}{version} = $version if $self->core;
 		}
-		default {
+		else {
 			if ($self->{modules}{$module}{corelist}) {
 
 				$self->{$require_type}{$module} = colored($version, 'bright_yellow')
@@ -492,7 +486,6 @@ sub _store_modules {
 					if $self->{modules}{$module}{'distribution'};
 			}
 		}
-	}
 	p $self->{modules}{$module} if $self->debug;
 
 	return;
@@ -570,10 +563,10 @@ sub remove_noisy_children {
 						if (not $self->quiet) {
 							if ($self->verbose) {
 								print BRIGHT_BLACK;
-								say 'delete miscreant noisy child '
+								print 'delete miscreant noisy child '
 									. $child_name . ' => '
 									. $required_ref->{$child_name};
-								print CLEAR;
+								print CLEAR. "\n";
 							}
 						}
 						try {
@@ -655,7 +648,7 @@ sub remove_twins {
 					if ($self->verbose) {
 						print BRIGHT_BLACK;
 
-						# say 'i have found twins';
+						# stdout - 'i have found twins';
 						print $dum_name . ' => '
 							. $required_ref->{$sorted_modules[$n - 1]};
 						print BRIGHT_BLACK ' <-twins-> '
@@ -673,9 +666,9 @@ sub remove_twins {
 				if ( version::is_lax($version) ) {
 					#Check parent version against a twins version
 					if ($version eq $required_ref->{$sorted_modules[$n]}) {
-						say $dum_parient . ' -> '
+						print $dum_parient . ' -> '
 							. $version
-							. ' is the parent of these twins'
+							. " is the parent of these twins\n"
 							if $self->verbose;
 						$required_ref->{$dum_parient} = $version;
 						$self->_set_found_twins(1);
@@ -698,7 +691,7 @@ sub _check_mojo_core {
 
 
 	my $mojo_module_ver;
-	state $mojo_ver;
+	static \ my $mojo_ver;
 
 	if (not defined $mojo_ver) {
 		$mojo_ver = $self->get_module_version('Mojolicious');
@@ -710,8 +703,8 @@ sub _check_mojo_core {
 	if ($self->verbose) {
 		print BRIGHT_BLACK;
 
-		#say 'looks like we found another mojo core module';
-		say $mojo_module . ' version ' . $mojo_module_ver;
+		#stdout - 'looks like we found another mojo core module';
+		print "$mojo_module version $mojo_module_ver\n";
 		print CLEAR;
 	}
 
@@ -789,9 +782,10 @@ sub get_module_version {
 		# a bit of de crappy-flying
 		# catch Test::Kwalitee::Extra 6e-06
 		print BRIGHT_BLACK;
-		say $module
+		print $module
 			. ' Unique Release Sequence Indicator NOT! -> '
 			. $cpan_version
+			. "\n"
 			if $self->verbose >= 1;
 		print CLEAR;
 		$cpan_version = version->parse($cpan_version)->numify;
@@ -814,7 +808,7 @@ sub mod_in_dist {
 	if ($module =~ /$dist/) {
 
 		print BRIGHT_BLACK;
-		say "module - $module  -> in dist - $dist" if $self->verbose >= 1;
+		print "module - $module  -> in dist - $dist\n" if $self->verbose >= 1;
 		print CLEAR;
 
 		# add dist to output hash so we can get rind of cruff later
@@ -867,7 +861,7 @@ App::Midgen - Check B<requires> & B<test_requires> of your package for CPAN incl
 
 =head1 VERSION
 
-This document describes App::Midgen version: 0.29_09
+This document describes App::Midgen version: 0.29_11
 
 =head1 SYNOPSIS
 

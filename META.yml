@@ -39,28 +39,28 @@ requires:
   File::Slurp::Tiny: '0.003'
   File::Spec: '3.4'
   Getopt::Long: '2.42'
-  JSON::Tiny: '0.4'
+  JSON::Tiny: '0.42'
   List::MoreUtils: '0.33'
   MetaCPAN::API: '0.43'
-  Module::CoreList: '3.04'
+  Module::CoreList: '3.07'
   Moo: '1.004002'
   PPI: '1.215'
   PPI::XS: '0.902'
   Perl::MinimumVersion: '1.32'
   Perl::PrereqScanner: '1.019'
   Pod::Usage: '1.63'
-  Scalar::Util: '1.38'
   Term::ANSIColor: '4.02'
+  Tie::Static: '0.04'
   Time::Stamp: '1.3'
   Try::Tiny: '0.19'
   Type::Tiny: '0.038'
   Types::Standard: '0.038'
   constant: '1.27'
-  perl: 5.10.1
+  perl: 5.8.1
   version: '0.9908'
 resources:
   bugtracker: https://github.com/kevindawson/App-Midgen/issues
   homepage: https://github.com/kevindawson/App-Midgen
   license: http://dev.perl.org/licenses/
   repository: git://github.com/kevindawson/App-Midgen.git
-version: 0.29_09
+version: 0.29_11

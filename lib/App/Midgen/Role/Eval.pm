@@ -1,6 +1,5 @@
 package App::Midgen::Role::Eval;
 
-use v5.10;
 use Moo::Role;
 requires qw( ppi_document debug format xtest _process_found_modules develop );
 
@@ -10,12 +9,8 @@ use Data::Printer {caller_info => 1, colored => 1,};
 # Load time and dependencies negate execution time
 # use namespace::clean -except => 'meta';
 
-our $VERSION = '0.29_09';
-$VERSION = eval $VERSION; ## no critic
-
-use English qw( -no_match_vars );    # Avoids reg-ex performance penalty
-local $OUTPUT_AUTOFLUSH = 1;
-
+our $VERSION = '0.29_11';
+$VERSION = eval $VERSION;    ## no critic
 
 #######
 # composed method - xtests_eval
@@ -48,6 +43,9 @@ sub xtests_eval {
 			{
 				for (0 .. $#{$chunk->{children}}) {
 
+					# ignore sub blocks - false positive
+					last if $chunk->{children}[$_]->content eq 'sub';
+
 					if ( $chunk->{children}[$_]->isa('PPI::Token::Quote::Double')
 						|| $chunk->{children}[$_]->isa('PPI::Token::Quote::Single'))
 					{
@@ -70,11 +68,9 @@ sub xtests_eval {
 
 								my $eval_line = $child_element->content;
 								my @eval_includes = split /;/, $eval_line;
-
 								foreach my $eval_include (@eval_includes) {
 									$self->_mod_ver(\@modules, \@version_strings,
 										$eval_include);
-
 								}
 							}
 						}
@@ -120,8 +116,8 @@ sub xtests_eval {
 
 				for (0 .. $#{$chunk->{children}}) {
 
-				my $module_name;
-				my $version_string;
+					my $module_name;
+					my $version_string;
 
 					if ($chunk->{children}[$_]->isa('PPI::Structure::Block')) {
 
@@ -146,7 +142,7 @@ sub xtests_eval {
 									$module_name
 										= ($module_name =~ m/\A(?:[A-Z])/) ? $module_name : undef;
 
-#									p $module_name;
+									p $module_name if $self->debug;
 								}
 							}
 
@@ -171,7 +167,7 @@ sub xtests_eval {
 									$version_string
 										= $ppi_sl->{children}[0]->{children}[0]->content;
 
-#									p $mod_ver;
+									p $version_string if $self->debug;
 
 								}
 							}
@@ -182,7 +178,6 @@ sub xtests_eval {
 						push @modules, $module_name;
 						$version_string
 							= version::is_lax($version_string) ? $version_string : 0;
-
 						$self->{found_version}{$module_name} = $version_string;
 					}
 				}
@@ -197,7 +192,7 @@ sub xtests_eval {
 	if (scalar @modules > 0) {
 
 		if ($storage_location eq 'runtime_recommends') {
-			if ($self->format =~ /cpanfile|metajson/) {
+			if ($self->format =~ /cpanfile|metajson|dist/) {
 				$self->_process_found_modules('runtime_recommends', \@modules);
 
 			}
@@ -208,7 +203,7 @@ sub xtests_eval {
 		}
 		else {
 
-			if ($self->format =~ /cpanfile|metajson/) {
+			if ($self->format =~ /cpanfile|metajson|dist/) {
 
 				if ($self->xtest eq 'test_requires') {
 					$self->_process_found_modules('recommends', \@modules);
@@ -237,11 +232,14 @@ sub _mod_ver {
 		$eval_include =~ s/^\s*(?:use|require|no)\s*//;
 
 		my $module_name = $eval_include;
+
 		$module_name =~ s/(?:\s[\s|\w|\n|.|;]+)$//;
 		$module_name =~ s/\s+(?:[\$|\w|\n]+)$//;
 		$module_name =~ s/\s+$//;
-		$module_name =~ m/\A(?<m_n>[\w|:]+)\b/;
-		$module_name = $+{m_n};
+#		$module_name =~ m/\A(?<m_n>[\w|:]+)\b/;
+#		$module_name = $+{m_n};
+		$module_name =~ m/\A([\w|:]+)\b/;
+		$module_name = $1;
 
 		# check for first char upper in module name
 		push @{$modules}, $module_name if $module_name =~ m/\A(?:[A-Z])/;
@@ -252,7 +250,7 @@ sub _mod_ver {
 		$version_string =~ s/[A-Z_a-z]|\s|\$|s|:|;//g;
 
 		$version_string = version::is_lax($version_string) ? $version_string : 0;
-
+		push @{$version_strings}, $version_string;
 		$self->{found_version}{$module_name} = $version_string;
 	}
 
@@ -275,7 +273,7 @@ App::Midgen::Roles::Eval - used by L<App::Midgen>
 
 =head1 VERSION
 
-This document describes App::Midgen::Roles version: 0.29_09
+This document describes App::Midgen::Roles version: 0.29_11
 
 =head1 METHODS
 
@@ -294,6 +292,8 @@ Checking for the following, extracting module name and version string.
   try { no Moose; 1; };
   try { require Moose };
   my $HAVE_MOOSE = try { require Moose; 1; };
+
+  eval {require PAR::Dist; PAR::Dist->VERSION(0.17)}
 
 =back
 
@@ -318,11 +318,4 @@ See L<App::Midgen>
 This library is free software; you can redistribute it and/or modify
 it under the same terms as Perl itself.
 
-=cut
-316:	final indentation level: 1
 
-Final nesting depth of '{'s is 1
-The most recent un-matched '{' is on line 21
-21: sub xtests_eval {
-                    ^
-316:	To save a full .LOG file rerun with -g

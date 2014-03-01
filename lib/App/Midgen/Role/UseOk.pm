@@ -1,20 +1,20 @@
 package App::Midgen::Role::UseOk;
 
-use v5.10;
+use constant {BLANK => q{ }, NONE => q{}, TWO => 2, THREE => 3,};
+
 use Moo::Role;
 requires qw( ppi_document debug format xtest _process_found_modules develop );
-
-use PPI;
-use Try::Tiny;
-use Data::Printer {caller_info => 1, colored => 1,};
 
 # Load time and dependencies negate execution time
 # use namespace::clean -except => 'meta';
 
-our $VERSION = '0.29_09';
+our $VERSION = '0.29_11';
 $VERSION = eval $VERSION; ## no critic
 
-use constant {BLANK => q{ }, NONE => q{}, TWO => 2, THREE => 3,};
+use PPI;
+use Try::Tiny;
+use Data::Printer {caller_info => 1, colored => 1,};
+use Tie::Static qw(static);
 
 
 #######
@@ -69,7 +69,7 @@ sub xtests_use_ok {
 										foreach my $element (@{$ppi_se->{children}}) {
 
 											# some fudge to remember the module name if falied
-											state $previous_module = undef;
+											static \ my $previous_module;
 											if ( $element->isa('PPI::Token::Quote::Single')
 												|| $element->isa('PPI::Token::Quote::Double'))
 											{
@@ -125,7 +125,7 @@ sub xtests_use_ok {
 	# if we found a module, process it with the correct catogery
 	if (scalar @modules > 0) {
 
-		if ($self->format =~ /cpanfile|metajson/) {
+		if ($self->format =~ /cpanfile|metajson|dist/) {
 			if ($self->xtest eq 'test_requires') {
 				$self->_process_found_modules('test_requires', \@modules);
 			}
@@ -157,7 +157,7 @@ for methods in use_ok in BEGIN blocks, used by L<App::Midgen>
 
 =head1 VERSION
 
-version: 0.29_09
+version: 0.29_11
 
 =head1 METHODS
 

@@ -1,18 +1,18 @@
 package App::Midgen::Role::UseModule;
 
-use v5.10;
+use constant {BLANK => q{ }, TRUE => 1, FALSE => 0, NONE => q{}, TWO => 2,
+	THREE => 3,};
+
 use Moo::Role;
 requires qw( ppi_document debug format xtest _process_found_modules develop );
+
+our $VERSION = '0.29_11';
+$VERSION = eval $VERSION; ## no critic
 
 use PPI;
 use Data::Printer;    # caller_info => 1;
 use Try::Tiny;
-
-our $VERSION = '0.29_09';
-$VERSION = eval $VERSION; ## no critic
-
-use constant {BLANK => q{ }, TRUE => 1, FALSE => 0, NONE => q{}, TWO => 2,
-	THREE => 3,};
+use Tie::Static qw(static);
 
 
 #######
@@ -87,7 +87,7 @@ sub xtests_use_module {
 								my $ppi_sl = $chunk->{children}[$_]
 									if $chunk->{children}[$_]->isa('PPI::Structure::List');
 
-								say 'Option 1: use_module( M::N )...' if $self->debug;
+								print "Option 1: use_module( M::N )...\n" if $self->debug;
 								$self->_module_names_ppi_sl(\@modules, $ppi_sl);
 							}
 						}
@@ -162,8 +162,7 @@ sub xtests_use_module {
 							my $ppi_sl = $chunk->{children}[$_]
 								if $chunk->{children}[$_]->isa('PPI::Structure::List');
 
-							say
-								'Option 2: my $q = use_module( M::N )...' if $self->debug;
+							print "Option 2: my \$q = use_module( M::N )...\n" if $self->debug;
 							$self->_module_names_ppi_sl(\@modules, $ppi_sl);
 
 						}
@@ -246,8 +245,7 @@ sub xtests_use_module {
 									my $ppi_sl = $chunk->{children}[$_]
 										if $chunk->{children}[$_]->isa('PPI::Structure::List');
 
-									say
-										'Option 3: $q = use_module( M::N )...' if $self->debug;
+									print "Option 3: \$q = use_module( M::N )...\n" if $self->debug;
 									$self->_module_names_ppi_sl(\@modules, $ppi_sl);
 								}
 							}
@@ -339,7 +337,7 @@ sub xtests_use_module {
 						if ($chunk->{children}[$_]->isa('PPI::Structure::List')) {
 							my $ppi_sl = $chunk->{children}[$_]
 								if $chunk->{children}[$_]->isa('PPI::Structure::List');
-							say 'Option 4: return use_module( M::N )...' if $self->debug;
+							print "Option 4: return use_module( M::N )...\n" if $self->debug;
 							$self->_module_names_ppi_sl(\@modules, $ppi_sl);
 
 						}
@@ -355,7 +353,7 @@ sub xtests_use_module {
 	# if we found a module, process it with the correct catogery
 	if (scalar @modules > 0) {
 		if ($storage_location eq 'runtime_recommends') {
-			if ($self->format =~ /cpanfile|metajson/) {
+			if ($self->format =~ /cpanfile|metajson|dist/) {
 				$self->_process_found_modules('runtime_recommends', \@modules);
 
 			}
@@ -415,7 +413,7 @@ sub _module_names_ppi_sl {
 
 	if ($ppi_sl->isa('PPI::Structure::List')) {
 
-		state $previous_module = undef;
+		static \ my $previous_module;
 		foreach my $ppi_se (@{$ppi_sl->{children}}) {
 			for ( 0..$#{$ppi_se->{children}}) {
 
@@ -475,7 +473,7 @@ includes, used by L<App::Midgen>
 
 =head1 VERSION
 
-version: 0.29_09
+version: 0.29_11
 
 
 =head1 METHODS
