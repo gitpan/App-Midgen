@@ -8,7 +8,7 @@ requires qw( no_index verbose );
 # Load time and dependencies negate execution time
 # use namespace::clean -except => 'meta';
 
-our $VERSION = '0.29_11';
+our $VERSION = '0.30';
 $VERSION = eval $VERSION;    ## no critic
 
 use English qw( -no_match_vars );    # Avoids reg-ex performance penalty
@@ -47,6 +47,8 @@ sub body_mi {
 	my $title        = shift;
 	my $required_ref = shift || return;
 
+	return if not %{$required_ref};
+
 	my $pm_length = 0;
 	foreach my $module_name (sort keys %{$required_ref}) {
 		if (length $module_name > $pm_length) {
@@ -54,19 +56,27 @@ sub body_mi {
 		}
 	}
 
-	print "perl_version '$App::Midgen::Min_Version';\n" if $title eq 'requires';
+	print "perl_version '$App::Midgen::Min_Version';\n" if $title eq 'RuntimeRequires';
 	print "\n";
+	$title =~ s/^Runtime//;
+	$title =~ s/^TestSuggests/recommends/;
+	$title =~ s/^Test/test_/;
 
 	foreach my $module_name (sort keys %{$required_ref}) {
 
 		if ($module_name =~ /^Win32/sxm) {
 			my $sq_key = "'$module_name'";
-			printf "%s %-*s => '%s' %s;\n", $title, $pm_length + 2, $sq_key,
+			printf "%s %-*s => '%s' %s;\n", lc $title, $pm_length + 2, $sq_key,
 				$required_ref->{$module_name}, colored('if win32', 'bright_green');
+		}
+		elsif ($module_name =~ /XS/sxm) {
+			my $sq_key = "'$module_name'";
+			printf "%s %-*s => '%s' %s;\n", lc $title, $pm_length + 2, $sq_key,
+				$required_ref->{$module_name}, colored('if can_xs', 'bright_blue');
 		}
 		else {
 			my $sq_key = "'$module_name'";
-			printf "%s %-*s => '%s';\n", $title, $pm_length + 2, $sq_key,
+			printf "%s %-*s => '%s';\n", lc $title, $pm_length + 2, $sq_key,
 				$required_ref->{$module_name};
 		}
 
@@ -137,7 +147,7 @@ used by L<App::Midgen>
 
 =head1 VERSION
 
-version: 0.29_11
+version: 0.30
 
 =head1 DESCRIPTION
 

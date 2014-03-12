@@ -15,7 +15,7 @@ requires qw( no_index verbose );
 # Load time and dependencies negate execution time
 # use namespace::clean -except => 'meta';
 
-our $VERSION = '0.29_11';
+our $VERSION = '0.30';
 $VERSION = eval $VERSION; ## no critic
 
 use English qw( -no_match_vars );    # Avoids reg-ex performance penalty
@@ -65,9 +65,11 @@ sub header_metajson {
 sub body_metajson {
 	my $self         = shift;
 	my $title        = shift;
-	my $required_ref = shift;
+	my $required_ref = shift || return;
 
-		if ( $title eq 'requires') {
+	return if not %{$required_ref};
+
+		if ( $title eq 'RuntimeRequires') {
 			print CLEAR THREE . '"prereqs" : {' . "\n";
 			print SIX . '"runtime" : {' . "\n";
 			print NINE . '"requires" : {' . "\n";
@@ -86,7 +88,7 @@ sub body_metajson {
 			print CLEAR;
 
 		}
-		elsif ( $title eq 'runtime_recommends') {
+		elsif ( $title eq 'RuntimeRecommends') {
 			print NINE . '"recommends" : {' . "\n";
 			foreach my $module_name (sort keys %{$required_ref}) {
 				print TWELVE . "\"$module_name\" : \"$required_ref->{$module_name}\",\n"
@@ -94,7 +96,7 @@ sub body_metajson {
 			}
 			print NINE . "}\n";
 		}
-		elsif ( $title eq 'test_requires') {
+		elsif ( $title eq 'TestRequires') {
 			print SIX . '"test" : {' . "\n";
 			print NINE . '"requires" : {' . "\n";
 			foreach my $module_name (sort keys %{$required_ref}) {
@@ -105,7 +107,7 @@ sub body_metajson {
 			}
 			print NINE . '}';
 		}
-		elsif ( $title eq 'recommends') {
+		elsif ( $title eq 'TestSuggests') {
 			if ($required_ref) {
 				print ",\n";
 				print NINE . '"suggests" : {' . "\n";
@@ -125,7 +127,7 @@ sub body_metajson {
 
 			}
 		}
-		elsif ( $title eq 'test_develop') {
+		elsif ( $title eq 'DevelopRequires') {
 			if ($required_ref) {
 
 				print ",\n";
@@ -216,7 +218,7 @@ used by L<App::Midgen>
 
 =head1 VERSION
 
-version: 0.29_11
+version: 0.30
 
 =head1 DESCRIPTION
 

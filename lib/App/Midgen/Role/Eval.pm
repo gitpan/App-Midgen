@@ -1,7 +1,10 @@
 package App::Midgen::Role::Eval;
 
+use constant {NONE => q{},};
+
 use Moo::Role;
-requires qw( ppi_document debug format xtest _process_found_modules develop );
+requires
+	qw( ppi_document debug format xtest _process_found_modules develop meta2 );
 
 use Try::Tiny;
 use Data::Printer {caller_info => 1, colored => 1,};
@@ -9,15 +12,15 @@ use Data::Printer {caller_info => 1, colored => 1,};
 # Load time and dependencies negate execution time
 # use namespace::clean -except => 'meta';
 
-our $VERSION = '0.29_11';
+our $VERSION = '0.30';
 $VERSION = eval $VERSION;    ## no critic
 
 #######
 # composed method - xtests_eval
 #######
 sub xtests_eval {
-	my $self             = shift;
-	my $storage_location = shift;
+	my $self = shift;
+	my $phase_relationship = shift || NONE;
 
 	#PPI::Document
 	#  PPI::Statement
@@ -191,30 +194,13 @@ sub xtests_eval {
 	# if we found a module, process it with the correct catogery
 	if (scalar @modules > 0) {
 
-		if ($storage_location eq 'runtime_recommends') {
-			if ($self->format =~ /cpanfile|metajson|dist/) {
-				$self->_process_found_modules('runtime_recommends', \@modules);
-
-			}
-			else {
-				$self->_process_found_modules('package_requires', \@modules);
-			}
-
+		if ($self->meta2) {
+			$self->_process_found_modules($phase_relationship, \@modules,
+				__PACKAGE__);
 		}
 		else {
-
-			if ($self->format =~ /cpanfile|metajson|dist/) {
-
-				if ($self->xtest eq 'test_requires') {
-					$self->_process_found_modules('recommends', \@modules);
-				}
-				elsif ($self->develop && $self->xtest eq 'test_develop') {
-					$self->_process_found_modules('test_develop', \@modules);
-				}
-			}
-			else {
-				$self->_process_found_modules('recommends', \@modules);
-			}
+			$self->_process_found_modules('TestSuggests', \@modules, __PACKAGE__) if $self->xtest;
+			$self->_process_found_modules('RuntimeRequires', \@modules,	__PACKAGE__) if not $self->xtest;
 		}
 	}
 	return;
@@ -236,6 +222,7 @@ sub _mod_ver {
 		$module_name =~ s/(?:\s[\s|\w|\n|.|;]+)$//;
 		$module_name =~ s/\s+(?:[\$|\w|\n]+)$//;
 		$module_name =~ s/\s+$//;
+
 #		$module_name =~ m/\A(?<m_n>[\w|:]+)\b/;
 #		$module_name = $+{m_n};
 		$module_name =~ m/\A([\w|:]+)\b/;
@@ -273,7 +260,7 @@ App::Midgen::Roles::Eval - used by L<App::Midgen>
 
 =head1 VERSION
 
-This document describes App::Midgen::Roles version: 0.29_11
+This document describes App::Midgen::Roles version: 0.30
 
 =head1 METHODS
 

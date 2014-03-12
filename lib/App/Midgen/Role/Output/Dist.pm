@@ -8,7 +8,7 @@ requires qw( no_index verbose );
 # Load time and dependencies negate execution time
 # use namespace::clean -except => 'meta';
 
-our $VERSION = '0.29_11';
+our $VERSION = '0.30';
 $VERSION = eval $VERSION;    ## no critic
 
 use English qw( -no_match_vars );    # Avoids reg-ex performance penalty
@@ -39,10 +39,9 @@ sub header_dist {
 #######
 sub body_dist {
 	my $self         = shift;
-	my $title        = shift;
+	my $title        = shift || return;
 	my $required_ref = shift || return;
 
-	# check if empty
 	return if not %{$required_ref};
 
 	print "\n";
@@ -54,20 +53,20 @@ sub body_dist {
 		}
 	}
 
-	if ($title eq 'requires') {
+	if ($title eq 'RuntimeRequires') {
 		print "[Prereqs]\n";
 		printf "%-*s = %s\n", $pm_length, 'perl', $App::Midgen::Min_Version;
 	}
-	elsif ($title eq 'runtime_recommends') {
+	elsif ($title eq 'RuntimeRecommends') {
 		print "[Prereqs / RuntimeRecommends]\n";
 	}
-	elsif ($title eq 'test_requires') {
+	elsif ($title eq 'TestRequires') {
 		print "[Prereqs / TestRequires]\n";
 	}
-	elsif ($title eq 'recommends') {
+	elsif ($title eq 'TestSuggests') {
 		print "[Prereqs / TestSuggests]\n";
 	}
-	elsif ($title eq 'test_develop') {
+	elsif ($title eq 'DevelopRequires') {
 		print "[Prereqs / DevelopRequires]\n";
 	}
 
@@ -149,7 +148,7 @@ used by L<App::Midgen>
 
 =head1 VERSION
 
-version: 0.29_11
+version: 0.30
 
 =head1 DESCRIPTION
 

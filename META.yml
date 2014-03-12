@@ -1,5 +1,5 @@
 ---
-abstract: 'Check B<requires> & B<test_requires> of your package for CPAN inclusion.'
+abstract: 'Check B<RuntimeRequires> & B<TestRequires> of your package for CPAN inclusion.'
 author:
   - 'Kevin Dawson <bowtie@cpan.org>'
 build_requires:
@@ -12,7 +12,7 @@ configure_requires:
   ExtUtils::MakeMaker: 6.59
 distribution_type: module
 dynamic_config: 1
-generated_by: 'Module::Install version 1.06'
+generated_by: 'Module::Install version 1.08'
 license: perl
 meta-spec:
   url: http://module-build.sourceforge.net/META-spec-v1.4.html
@@ -39,7 +39,7 @@ requires:
   File::Slurp::Tiny: '0.003'
   File::Spec: '3.4'
   Getopt::Long: '2.42'
-  JSON::Tiny: '0.42'
+  JSON::Tiny: '0.45'
   List::MoreUtils: '0.33'
   MetaCPAN::API: '0.43'
   Module::CoreList: '3.07'
@@ -63,4 +63,4 @@ resources:
   homepage: https://github.com/kevindawson/App-Midgen
   license: http://dev.perl.org/licenses/
   repository: git://github.com/kevindawson/App-Midgen.git
-version: 0.29_11
+version: '0.30'

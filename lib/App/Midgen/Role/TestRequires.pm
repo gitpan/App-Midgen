@@ -3,7 +3,7 @@ package App::Midgen::Role::TestRequires;
 use constant {BLANK => q{ }, NONE => q{}, TWO => 2, THREE => 3,};
 
 use Moo::Role;
-requires qw( ppi_document develop debug format xtest _process_found_modules );
+requires qw( ppi_document develop debug format xtest _process_found_modules meta2 );
 
 use PPI;
 use Try::Tiny;
@@ -12,7 +12,7 @@ use Data::Printer {caller_info => 1, colored => 1,};
 # Load time and dependencies negate execution time
 # use namespace::clean -except => 'meta';
 
-our $VERSION = '0.29_11';
+our $VERSION = '0.30';
 $VERSION = eval $VERSION; ## no critic
 
 
@@ -21,6 +21,7 @@ $VERSION = eval $VERSION; ## no critic
 #######
 sub xtests_test_requires {
 	my $self = shift;
+	my $phase_relationship = shift || NONE;
 
 	#  PPI::Statement::Include
 	#    PPI::Token::Word  	'use'
@@ -148,19 +149,14 @@ sub xtests_test_requires {
 	p @modules         if $self->debug;
 	p @version_strings if $self->debug;
 
-	# if we found a module, process it with the correct catogery
+	# if we found a module, process it with the correct phase-relationship
 	if (scalar @modules > 0) {
 
-		if ($self->format =~ /cpanfile|metajson|dist/) {
-			if ($self->xtest eq 'test_requires') {
-				$self->_process_found_modules('recommends', \@modules);
-			}
-			elsif ($self->develop && $self->xtest eq 'test_develop') {
-				$self->_process_found_modules('test_develop', \@modules);
-			}
+		if ($self->meta2) {
+			$self->_process_found_modules($phase_relationship, \@modules, __PACKAGE__ );
 		}
 		else {
-			$self->_process_found_modules('recommends', \@modules);
+			$self->_process_found_modules('TestSuggests', \@modules, __PACKAGE__ );
 		}
 	}
 	return;
@@ -183,7 +179,7 @@ for methods in use L<Test::Requires> blocks, used by L<App::Midgen>
 
 =head1 VERSION
 
-version: 0.29_11
+version: 0.30
 
 =head1 METHODS
 

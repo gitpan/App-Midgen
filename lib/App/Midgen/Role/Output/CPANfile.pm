@@ -8,14 +8,13 @@ requires qw( verbose );
 # Load time and dependencies negate execution time
 # use namespace::clean -except => 'meta';
 
-our $VERSION = '0.29_11';
+our $VERSION = '0.30';
 $VERSION = eval $VERSION;    ## no critic
 
 use English qw( -no_match_vars );    # Avoids reg-ex performance penalty
 local $OUTPUT_AUTOFLUSH = 1;
 
 use Term::ANSIColor qw( :constants colored );
-use Data::Printer {caller_info => 1, colored => 1,};
 use File::Spec;
 
 #######
@@ -34,8 +33,8 @@ sub header_cpanfile {
 #######
 sub body_cpanfile {
 	my $self         = shift;
-	my $title        = shift;
-	my $required_ref = shift;
+	my $title        = shift || return;
+	my $required_ref = shift || return;
 
 	my $pm_length = 0;
 	foreach my $module_name (sort keys %{$required_ref}) {
@@ -44,19 +43,19 @@ sub body_cpanfile {
 		}
 	}
 
-	if ($title eq 'requires') {
+	if ($title eq 'RuntimeRequires') {
 		print "\n";
 
 		$required_ref->{'perl'} = $App::Midgen::Min_Version;
 		foreach my $module_name (sort keys %{$required_ref}) {
 
 			my $mod_name = "'$module_name',";
-			printf "%s %-*s '%s';\n", $title, $pm_length + THREE, $mod_name,
+			printf "%s %-*s '%s';\n", 'requires', $pm_length + THREE, $mod_name,
 				$required_ref->{$module_name}
 				if $required_ref->{$module_name} !~ m/mcpan/;
 		}
 	}
-	elsif ($title eq 'runtime_recommends') {
+	elsif ($title eq 'RuntimeRecommends') {
 		print "\n";
 		foreach my $module_name (sort keys %{$required_ref}) {
 
@@ -66,7 +65,7 @@ sub body_cpanfile {
 				if $required_ref->{$module_name} !~ m/mcpan/;
 		}
 	}
-	elsif ($title eq 'test_requires') {
+	elsif ($title eq 'TestRequires') {
 		print "\non test => sub {\n";
 		foreach my $module_name (sort keys %{$required_ref}) {
 			my $mod_name = "'$module_name',";
@@ -77,7 +76,7 @@ sub body_cpanfile {
 		}
 		print "\n" if %{$required_ref};
 	}
-	elsif ($title eq 'recommends') {
+	elsif ($title eq 'TestSuggests') {
 		foreach my $module_name (sort keys %{$required_ref}) {
 			my $mod_name = "'$module_name',";
 			printf "\t%s %-*s '%s';\n", 'suggests', $pm_length + THREE, $mod_name,
@@ -85,9 +84,11 @@ sub body_cpanfile {
 				if $required_ref->{$module_name} !~ m/mcpan/;
 
 		}
+	}
+	elsif ($title eq 'Close') {
 		print "};\n";
 	}
-	elsif ($title eq 'test_develop') {
+	elsif ($title eq 'DevelopRequires') {
 		print "\non develop => sub {\n";
 		foreach my $module_name (sort keys %{$required_ref}) {
 			my $mod_name = "'$module_name',";
@@ -133,7 +134,7 @@ used by L<App::Midgen>
 
 =head1 VERSION
 
-version: 0.29_11
+version: 0.30
 
 =head1 DESCRIPTION
 

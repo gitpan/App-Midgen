@@ -3,12 +3,12 @@ package App::Midgen::Role::UseOk;
 use constant {BLANK => q{ }, NONE => q{}, TWO => 2, THREE => 3,};
 
 use Moo::Role;
-requires qw( ppi_document debug format xtest _process_found_modules develop );
+requires qw( ppi_document debug format xtest _process_found_modules develop meta2 );
 
 # Load time and dependencies negate execution time
 # use namespace::clean -except => 'meta';
 
-our $VERSION = '0.29_11';
+our $VERSION = '0.30';
 $VERSION = eval $VERSION; ## no critic
 
 use PPI;
@@ -22,6 +22,7 @@ use Tie::Static qw(static);
 #######
 sub xtests_use_ok {
 	my $self = shift;
+	my $phase_relationship = shift || NONE;
 
 	#PPI::Document
 	#  PPI::Statement::Scheduled
@@ -125,16 +126,11 @@ sub xtests_use_ok {
 	# if we found a module, process it with the correct catogery
 	if (scalar @modules > 0) {
 
-		if ($self->format =~ /cpanfile|metajson|dist/) {
-			if ($self->xtest eq 'test_requires') {
-				$self->_process_found_modules('test_requires', \@modules);
-			}
-			elsif ($self->develop && $self->xtest eq 'test_develop') {
-				$self->_process_found_modules('test_develop', \@modules);
-			}
+		if ($self->xtest) {
+			$self->_process_found_modules('DevelopRequires', \@modules, __PACKAGE__ );
 		}
 		else {
-			$self->_process_found_modules('test_requires', \@modules);
+			$self->_process_found_modules('TestRequires', \@modules, __PACKAGE__ );
 		}
 	}
 	return;
@@ -157,7 +153,7 @@ for methods in use_ok in BEGIN blocks, used by L<App::Midgen>
 
 =head1 VERSION
 
-version: 0.29_11
+version: 0.30
 
 =head1 METHODS
 
