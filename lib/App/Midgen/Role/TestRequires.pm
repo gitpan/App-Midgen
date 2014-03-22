@@ -12,7 +12,7 @@ use Data::Printer {caller_info => 1, colored => 1,};
 # Load time and dependencies negate execution time
 # use namespace::clean -except => 'meta';
 
-our $VERSION = '0.30';
+our $VERSION = '0.31_05';
 $VERSION = eval $VERSION; ## no critic
 
 
@@ -151,14 +151,11 @@ sub xtests_test_requires {
 
 	# if we found a module, process it with the correct phase-relationship
 	if (scalar @modules > 0) {
+		$self->_process_found_modules($phase_relationship, \@modules,
+			__PACKAGE__, $phase_relationship,);
 
-		if ($self->meta2) {
-			$self->_process_found_modules($phase_relationship, \@modules, __PACKAGE__ );
-		}
-		else {
-			$self->_process_found_modules('TestSuggests', \@modules, __PACKAGE__ );
-		}
 	}
+
 	return;
 }
 
@@ -179,7 +176,7 @@ for methods in use L<Test::Requires> blocks, used by L<App::Midgen>
 
 =head1 VERSION
 
-version: 0.30
+version: 0.31_05
 
 =head1 METHODS
 

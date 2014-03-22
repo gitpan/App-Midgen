@@ -26,7 +26,7 @@ requires Term::ANSIColor            4.02
 requires Tie::Static                0.04
 requires Time::Stamp                1.3
 requires Try::Tiny                  0.19
-requires Type::Tiny                 0.038
+requires Type::Tiny                 0.04
 requires Types::Standard            0.038
 requires constant                   1.27
 # requires lib                        0.63
@@ -36,7 +36,7 @@ test_requires Test::CheckDeps 0.01
 test_requires Test::More      1.001002
 test_requires Test::Requires  0.07
 
-recommends ExtUtils::MakeMaker        6.88
+recommends ExtUtils::MakeMaker        6.68
 recommends File::Spec::Functions      3.4
 recommends List::Util                 1.38
 recommends Test::Pod                  1.48

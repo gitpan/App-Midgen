@@ -3,13 +3,14 @@ package App::Midgen::Role::UseOk;
 use constant {BLANK => q{ }, NONE => q{}, TWO => 2, THREE => 3,};
 
 use Moo::Role;
-requires qw( ppi_document debug format xtest _process_found_modules develop meta2 );
+requires
+	qw( ppi_document debug format xtest _process_found_modules develop meta2 );
 
 # Load time and dependencies negate execution time
 # use namespace::clean -except => 'meta';
 
-our $VERSION = '0.30';
-$VERSION = eval $VERSION; ## no critic
+our $VERSION = '0.31_05';
+$VERSION = eval $VERSION;    ## no critic
 
 use PPI;
 use Try::Tiny;
@@ -70,7 +71,7 @@ sub xtests_use_ok {
 										foreach my $element (@{$ppi_se->{children}}) {
 
 											# some fudge to remember the module name if falied
-											static \ my $previous_module;
+											static \my $previous_module;
 											if ( $element->isa('PPI::Token::Quote::Single')
 												|| $element->isa('PPI::Token::Quote::Double'))
 											{
@@ -98,7 +99,10 @@ sub xtests_use_ok {
 												$version_string =~ s/['|"]$//;
 												next if $version_string !~ m/\A[\d|v]/;
 
-												$version_string = version::is_lax($version_string) ? $version_string : 0;
+												$version_string
+													= version::is_lax($version_string)
+													? $version_string
+													: 0;
 
 												warn 'found version_string - ' . $version_string
 													if $self->debug;
@@ -125,14 +129,11 @@ sub xtests_use_ok {
 
 	# if we found a module, process it with the correct catogery
 	if (scalar @modules > 0) {
+		$self->_process_found_modules($phase_relationship, \@modules,
+			__PACKAGE__, $phase_relationship,);
 
-		if ($self->xtest) {
-			$self->_process_found_modules('DevelopRequires', \@modules, __PACKAGE__ );
-		}
-		else {
-			$self->_process_found_modules('TestRequires', \@modules, __PACKAGE__ );
-		}
 	}
+
 	return;
 }
 
@@ -153,7 +154,7 @@ for methods in use_ok in BEGIN blocks, used by L<App::Midgen>
 
 =head1 VERSION
 
-version: 0.30
+version: 0.31_05
 
 =head1 METHODS
 

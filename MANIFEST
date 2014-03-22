@@ -14,7 +14,9 @@ lib/App/Midgen.pm
 lib/App/Midgen/Role/Attributes.pm
 lib/App/Midgen/Role/AttributesX.pm
 lib/App/Midgen/Role/Eval.pm
+lib/App/Midgen/Role/Experimental.pm
 lib/App/Midgen/Role/FindMinVersion.pm
+lib/App/Midgen/Role/Heuristics.pm
 lib/App/Midgen/Role/InDistribution.pm
 lib/App/Midgen/Role/Options.pm
 lib/App/Midgen/Role/Output.pm

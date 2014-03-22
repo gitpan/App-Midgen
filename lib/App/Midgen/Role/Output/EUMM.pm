@@ -15,7 +15,7 @@ requires qw( verbose );
 # Load time and dependencies negate execution time
 # use namespace::clean -except => 'meta';
 
-our $VERSION = '0.30';
+our $VERSION = '0.31_05';
 $VERSION = eval $VERSION;    ## no critic
 
 use English qw( -no_match_vars );    # Avoids reg-ex performance penalty
@@ -86,12 +86,16 @@ sub body_eumm {
 	elsif ($title eq 'TestRequires') {
 		print THREE. "'TEST_REQUIRES' => {\n";
 	}
-	elsif ($title eq 'TestSuggests') {
+	elsif ($title eq 'recommends') {
 		$self->_recommends($required_ref);
 		return;
 	}
 
 	foreach my $module_name (sort keys %{$required_ref}) {
+
+		next
+			if $title eq 'TestRequires'
+			&& $required_ref->{$module_name} =~ m/mcpan/;
 
 		my $sq_key = q{'} . $module_name . q{'};
 		printf SIX. " %-*s => '%s',\n", $pm_length + 2, $sq_key,
@@ -200,7 +204,7 @@ used by L<App::Midgen>
 
 =head1 VERSION
 
-version: 0.30
+version: 0.31_05
 
 =head1 DESCRIPTION
 
