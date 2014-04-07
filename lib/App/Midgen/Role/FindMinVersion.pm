@@ -6,14 +6,14 @@ use Types::Standard qw( Bool );
 use Moo::Role;
 requires qw( ppi_document debug experimental verbose );
 
-our $VERSION = '0.31_05';
+our $VERSION = '0.31_07';
 $VERSION = eval $VERSION;    ## no critic
 
 use Perl::MinimumVersion;
 use Try::Tiny;
 use Term::ANSIColor qw( :constants colored colorstrip );
 use version;
-use Data::Printer {caller_info => 1, colored => 1,};
+use Data::Printer {caller_info => 1,};
 
 has 'mro_skip' => (
 	is => 'rwp',
@@ -70,19 +70,14 @@ sub min_version {
 			$self->_set_mro_skip(TRUE);
 			print BRIGHT_BLACK
 				. 'Info: PMV blame = '
-#				. WHITE
 				. $blame
-#				. BRIGHT_BLACK
 				. ' -> 5.010 in '
 				. $filename
-#				. ' # -x to skip'
 				. CLEAR . "\n";
 		}
 	};
 
-#	if ($self->{mro_skip} && $self->{experimental}) {
-	if ($self->{mro_skip}) {
-
+	if ($self->mro_skip) {
 		if (defined $self->{modules}{'MRO::Compat'}) {
 			foreach my $index (0 .. $#{$self->{modules}{'MRO::Compat'}{infiles}}) {
 				if ($self->{modules}{'MRO::Compat'}{infiles}->[$index][0] eq '/'
@@ -128,7 +123,7 @@ App::Midgen::Roles::FindMinVersion - used by L<App::Midgen>
 
 =head1 VERSION
 
-version: 0.31_05
+version: 0.31_07
 
 =head1 METHODS
 

@@ -5,7 +5,7 @@ author:
 build_requires:
   ExtUtils::MakeMaker: 6.59
   Test::CheckDeps: '0.01'
-  Test::More: '1.001002'
+  Test::More: '1.001003'
   Test::Requires: '0.07'
 configure_requires:
   ExtUtils::CBuilder: 0.27
@@ -32,7 +32,7 @@ recommends:
   Test::Pod::Coverage: '1.08'
   Test::Script: '1.07'
 requires:
-  Carp: '1.32'
+  Carp: '1.3301'
   Class::XSAccessor: '1.19'
   Cwd: '3.4'
   Data::Printer: '0.35'
@@ -42,19 +42,18 @@ requires:
   JSON::Tiny: '0.45'
   List::MoreUtils: '0.33'
   MetaCPAN::API: '0.43'
-  Module::CoreList: '3.07'
+  Module::CoreList: '3.09'
   Moo: '1.004002'
   PPI: '1.215'
   PPI::XS: '0.902'
   Perl::MinimumVersion: '1.32'
   Perl::PrereqScanner: '1.019'
   Pod::Usage: '1.63'
-  Term::ANSIColor: '4.02'
+  Term::ANSIColor: '4.03'
   Tie::Static: '0.04'
   Time::Stamp: '1.3'
-  Try::Tiny: '0.19'
-  Type::Tiny: '0.04'
-  Types::Standard: '0.038'
+  Try::Tiny: '0.2'
+  Type::Tiny: '0.042'
   constant: '1.27'
   perl: 5.8.1
   version: '0.9908'
@@ -63,4 +62,4 @@ resources:
   homepage: https://github.com/kevindawson/App-Midgen
   license: http://dev.perl.org/licenses/
   repository: git://github.com/kevindawson/App-Midgen.git
-version: 0.31_05
+version: 0.31_07

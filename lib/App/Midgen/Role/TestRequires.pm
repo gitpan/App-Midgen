@@ -3,17 +3,18 @@ package App::Midgen::Role::TestRequires;
 use constant {BLANK => q{ }, NONE => q{}, TWO => 2, THREE => 3,};
 
 use Moo::Role;
-requires qw( ppi_document develop debug format xtest _process_found_modules meta2 );
+requires
+	qw( ppi_document develop debug verbose format xtest _process_found_modules meta2 );
 
 use PPI;
 use Try::Tiny;
-use Data::Printer {caller_info => 1, colored => 1,};
+use Data::Printer {caller_info => 1,};
 
 # Load time and dependencies negate execution time
 # use namespace::clean -except => 'meta';
 
-our $VERSION = '0.31_05';
-$VERSION = eval $VERSION; ## no critic
+our $VERSION = '0.31_07';
+$VERSION = eval $VERSION;    ## no critic
 
 
 #######
@@ -22,6 +23,9 @@ $VERSION = eval $VERSION; ## no critic
 sub xtests_test_requires {
 	my $self = shift;
 	my $phase_relationship = shift || NONE;
+
+	my @modules;
+	my @version_strings;
 
 	#  PPI::Statement::Include
 	#    PPI::Token::Word  	'use'
@@ -38,8 +42,6 @@ sub xtests_test_requires {
 	#        PPI::Token::Number::Float  	'1.46'
 	#      PPI::Token::Whitespace  	' '
 	#    PPI::Token::Structure  	';'
-	my @modules;
-	my @version_strings;
 
 	try {
 		my @chunks
@@ -69,7 +71,7 @@ sub xtests_test_requires {
 					)
 				{
 
-					foreach ( 0 .. $#{$hunk->{children}}) {
+					foreach (0 .. $#{$hunk->{children}}) {
 
 						# looking for use Test::Requires { 'Test::Pod' => '1.46' };
 						if ($hunk->{children}[$_]->isa('PPI::Structure::Constructor')) {
@@ -77,7 +79,7 @@ sub xtests_test_requires {
 							my $ppi_sc = $hunk->{children}[$_]
 								if $hunk->{children}[$_]->isa('PPI::Structure::Constructor');
 
-							foreach ( 0 .. $#{$ppi_sc->{children}}) {
+							foreach (0 .. $#{$ppi_sc->{children}}) {
 
 								if ($ppi_sc->{children}[$_]->isa('PPI::Statement')) {
 
@@ -94,8 +96,9 @@ sub xtests_test_requires {
 											my $module_name = $element->content;
 											$module_name =~ s/(?:'|")//g;
 											if ($module_name =~ m/\A(?:[A-Z])/) {
-												warn 'found module - ' . $module_name if $self->debug;
+												print "found module - $module_name\n" if $self->debug;
 												push @modules, $module_name;
+												$version_strings[$#modules] = undef;
 											}
 										}
 
@@ -108,12 +111,16 @@ sub xtests_test_requires {
 											$version_string =~ s/(?:'|")//g;
 											if ($version_string =~ m/\A(?:[0-9])/) {
 
-												$version_string = version::is_lax($version_string) ? $version_string : 0;
+												$version_string
+													= version::is_lax($version_string)
+													? $version_string
+													: 0;
 
-												warn 'found version string - ' . $version_string
+												print "found version string - $version_string\n"
 													if $self->debug;
 												$self->{found_version}{$modules[$#modules]}
 													= $version_string;
+												$version_strings[$#modules] = $version_string;
 											}
 										}
 									}
@@ -139,23 +146,32 @@ sub xtests_test_requires {
 
 							$module =~ s{$type_close}{};
 							push @modules, split(BLANK, $module);
-
+							$version_strings[$#modules] = undef;
 						}
 					}
 				}
 			}
 		}
 	};
+
+	@version_strings = map { defined $_ ? $_ : 0 } @version_strings;
 	p @modules         if $self->debug;
 	p @version_strings if $self->debug;
 
-	# if we found a module, process it with the correct phase-relationship
 	if (scalar @modules > 0) {
-		$self->_process_found_modules($phase_relationship, \@modules,
-			__PACKAGE__, $phase_relationship,);
 
+		for (0 .. $#modules) {
+			print
+				"Info: TestRequires -> Sending $modules[$_] - $version_strings[$_]\n"
+				if ($self->verbose == TWO);
+			try {
+				$self->_process_found_modules(
+					$phase_relationship, $modules[$_], $version_strings[$_],
+					__PACKAGE__,         $phase_relationship,
+				);
+			};
+		}
 	}
-
 	return;
 }
 
@@ -176,7 +192,7 @@ for methods in use L<Test::Requires> blocks, used by L<App::Midgen>
 
 =head1 VERSION
 
-version: 0.31_05
+version: 0.31_07
 
 =head1 METHODS
 

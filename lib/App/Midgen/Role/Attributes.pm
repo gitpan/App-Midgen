@@ -6,12 +6,10 @@ use Types::Standard qw( ArrayRef Bool Int Object Str);
 use Moo::Role;
 requires qw( experimental format );
 
-# use Data::Printer { caller_info => 1, colored => 1, };
-
 # Load time and dependencies negate execution time
 # use namespace::clean -except => 'meta';
 
-our $VERSION = '0.31_05';
+our $VERSION = '0.31_07';
 $VERSION = eval $VERSION; ## no critic
 
 use Carp;
@@ -63,9 +61,9 @@ sub _meta2 {
 	my $self = shift;
 
 	if ( $self->format =~ m/cpanfile|metajson|dist/ ) {
-		return 1;
+		return TRUE;
 	} else {
-		return 0;
+		return FALSE;
 	}
 }
 
@@ -128,7 +126,7 @@ App::Midgen::Role::Attributes - Package Attributes used by L<App::Midgen>
 
 =head1 VERSION
 
-version: 0.31_05
+version: 0.31_07
 
 =head1 METHODS
 

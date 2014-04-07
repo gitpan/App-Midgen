@@ -5,13 +5,13 @@ use constant {BLANK => q{ }, TRUE => 1, FALSE => 0, NONE => q{}, TWO => 2,
 
 use Moo::Role;
 requires
-	qw( ppi_document debug format xtest _process_found_modules develop meta2 );
+	qw( ppi_document debug verbose format xtest _process_found_modules develop meta2 );
 
-our $VERSION = '0.31_05';
+our $VERSION = '0.31_07';
 $VERSION = eval $VERSION;    ## no critic
 
 use PPI;
-use Data::Printer;           # caller_info => 1;
+use Data::Printer {caller_info => 1,};
 use Try::Tiny;
 use Tie::Static qw(static);
 
@@ -89,7 +89,8 @@ sub xtests_use_module {
 									if $chunk->{children}[$_]->isa('PPI::Structure::List');
 
 								print "Option 1: use_module( M::N )...\n" if $self->debug;
-								$self->_module_names_ppi_sl(\@modules, $ppi_sl);
+								$self->_module_names_ppi_sl($ppi_sl, \@modules,
+									\@version_strings);
 							}
 						}
 					}
@@ -165,7 +166,9 @@ sub xtests_use_module {
 
 							print "Option 2: my \$q = use_module( M::N )...\n"
 								if $self->debug;
-							$self->_module_names_ppi_sl(\@modules, $ppi_sl);
+							$self->_module_names_ppi_sl($ppi_sl, \@modules,
+								\@version_strings);
+
 
 						}
 					}
@@ -249,7 +252,9 @@ sub xtests_use_module {
 
 									print "Option 3: \$q = use_module( M::N )...\n"
 										if $self->debug;
-									$self->_module_names_ppi_sl(\@modules, $ppi_sl);
+									$self->_module_names_ppi_sl($ppi_sl, \@modules,
+										\@version_strings);
+
 								}
 							}
 						}
@@ -342,7 +347,9 @@ sub xtests_use_module {
 								if $chunk->{children}[$_]->isa('PPI::Structure::List');
 							print "Option 4: return use_module( M::N )...\n"
 								if $self->debug;
-							$self->_module_names_ppi_sl(\@modules, $ppi_sl);
+							$self->_module_names_ppi_sl($ppi_sl, \@modules,
+								\@version_strings,);
+
 
 						}
 					}
@@ -351,14 +358,22 @@ sub xtests_use_module {
 		}
 	};
 
+#	p @version_strings;
+	@version_strings = map { defined $_ ? $_ : 0 } @version_strings;
 	p @modules         if $self->debug;
 	p @version_strings if $self->debug;
-
-	# if we found a module, process it with the correct catogery
 	if (scalar @modules > 0) {
-		$self->_process_found_modules($phase_relationship, \@modules,
-			__PACKAGE__, $phase_relationship,);
 
+		for (0 .. $#modules) {
+			print "Info: UseModule -> Sending $modules[$_] - $version_strings[$_]\n"
+				if ($self->verbose == TWO);
+			try {
+				$self->_process_found_modules(
+					$phase_relationship, $modules[$_], $version_strings[$_],
+					__PACKAGE__,         $phase_relationship,
+				);
+			};
+		}
 	}
 
 	return;
@@ -404,7 +419,7 @@ sub _is_module_runtime {
 # composed method extract module name from PPI::Structure::List
 #######
 sub _module_names_ppi_sl {
-	my ($self, $modules, $ppi_sl) = @_;
+	my ($self, $ppi_sl, $mn_ref, $mv_ref) = @_;
 
 
 	if ($ppi_sl->isa('PPI::Structure::List')) {
@@ -419,9 +434,10 @@ sub _module_names_ppi_sl {
 					my $module = $ppi_se->{children}[$_]->content;
 					$module =~ s/(?:['|"])//g;
 					if ($module =~ m/\A[A-Z]/) {
-						warn 'found module - ' . $module if $self->debug;
-						push @$modules, $module;
-						p @$modules if $self->debug;
+						print "found module - $module\n" if $self->debug;
+						push @{$mn_ref}, $module;
+						$mv_ref->[$#{$mn_ref}] = undef;
+						p @{$mn_ref} if $self->debug;
 						$previous_module = $module;
 					}
 				}
@@ -437,10 +453,14 @@ sub _module_names_ppi_sl {
 					$version_string
 						= version::is_lax($version_string) ? $version_string : 0;
 
-					warn 'found version_string - ' . $version_string if $self->debug;
+					print "Info: UseModule found version_string - $version_string\n"
+						if $self->debug;
+
 					try {
-						$self->{found_version}{$previous_module} = $version_string
-							if $previous_module;
+						if ($previous_module) {
+							$self->{found_version}{$previous_module} = $version_string;
+							$mv_ref->[$#{$mn_ref}] = $version_string;
+						}
 						p $version_string if $self->debug;
 						$previous_module = undef;
 					};
@@ -448,8 +468,6 @@ sub _module_names_ppi_sl {
 			}
 		}
 	}
-
-
 }
 
 
@@ -470,7 +488,7 @@ includes, used by L<App::Midgen>
 
 =head1 VERSION
 
-version: 0.31_05
+version: 0.31_07
 
 
 =head1 METHODS

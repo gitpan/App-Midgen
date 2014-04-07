@@ -1,10 +1,10 @@
 package App::Midgen::Role::Output::Infile;
 
 use constant {
-	BLANK => q{ }, 
-	NONE => q{}, 
-	THREE => 3, 
-	EIGHT => 8, 
+	BLANK => q{ },
+	NONE => q{},
+	THREE => 3,
+	EIGHT => 8,
 	NINE => 9,
 	TEN => 10
 };
@@ -16,14 +16,14 @@ use Try::Tiny;
 # Load time and dependencies negate execution time
 # use namespace::clean -except => 'meta';
 
-our $VERSION = '0.31_05';
+our $VERSION = '0.31_07';
 $VERSION = eval $VERSION;    ## no critic
 
 use English qw( -no_match_vars );
 local $OUTPUT_AUTOFLUSH = 1;
 
 use Term::ANSIColor qw( :constants colored );
-use Data::Printer {caller_info => 1, colored => 1,};
+use Data::Printer {caller_info => 1,};
 use File::Spec;
 
 #######
@@ -144,7 +144,7 @@ used by L<App::Midgen>
 
 =head1 VERSION
 
-version: 0.31_05
+version: 0.31_07
 
 =head1 DESCRIPTION
 
