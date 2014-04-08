@@ -62,4 +62,4 @@ resources:
   homepage: https://github.com/kevindawson/App-Midgen
   license: http://dev.perl.org/licenses/
   repository: git://github.com/kevindawson/App-Midgen.git
-version: 0.31_07
+version: '0.32'
