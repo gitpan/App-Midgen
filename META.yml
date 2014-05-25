@@ -26,7 +26,7 @@ no_index:
     - xt
 recommends:
   ExtUtils::MakeMaker: '6.68'
-  File::Spec::Functions: '3.4'
+  File::Spec::Functions: '3.47'
   List::Util: '1.38'
   Test::Pod: '1.48'
   Test::Pod::Coverage: '1.08'
@@ -34,16 +34,16 @@ recommends:
 requires:
   Carp: '1.3301'
   Class::XSAccessor: '1.19'
-  Cwd: '3.4'
+  Cwd: '3.47'
   Data::Printer: '0.35'
   File::Slurp::Tiny: '0.003'
-  File::Spec: '3.4'
+  File::Spec: '3.47'
   Getopt::Long: '2.42'
-  JSON::Tiny: '0.48'
+  JSON::Tiny: '0.49'
   List::MoreUtils: '0.33'
   MetaCPAN::Client: '1.003'
   Module::CoreList: '3.1'
-  Moo: '1.004002'
+  Moo: '1.004005'
   PPI: '1.215'
   PPI::XS: '0.902'
   Perl::MinimumVersion: '1.37'
@@ -62,4 +62,4 @@ resources:
   homepage: https://github.com/kevindawson/App-Midgen
   license: http://dev.perl.org/licenses/
   repository: git://github.com/kevindawson/App-Midgen.git
-version: 0.33_05
+version: '0.34'
